@@ -1,0 +1,17 @@
+# CODEOWNERS file for repository access control
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owners - these users are requested for review when anyone opens a pull request
+* @PES2UG23CS143 @PES2UG23CS165EC @PES2UG23CS160 @PES2UG23-CS157 @nikitha-0704 @samwilson129 @harshamogra @sudeeparoydey
+
+# Specific file/folder ownership
+# Documentation
+docs/ @PES2UG23CS143 @PES2UG23CS165EC @PES2UG23CS160 @PES2UG23-CS157 @nikitha-0704 @samwilson129 @harshamogra @sudeeparoydey
+
+# Configuration files
+*.json @PES2UG23CS143 @PES2UG23CS165EC @PES2UG23CS160 @PES2UG23-CS157 @nikitha-0704 @samwilson129 @harshamogra @sudeeparoydey
+*.yml @PES2UG23CS143 @PES2UG23CS165EC @PES2UG23CS160 @PES2UG23-CS157 @nikitha-0704 @samwilson129 @harshamogra @sudeeparoydey
+*.yaml @PES2UG23CS143 @PES2UG23CS165EC @PES2UG23CS160 @PES2UG23-CS157 @nikitha-0704 @samwilson129 @harshamogra @sudeeparoydey
+
+# Student IDs for reference:
+# PES2UG23CS143, PES2UG23CS165EC, PES2UG23CS160, PES2UG23-CS157
