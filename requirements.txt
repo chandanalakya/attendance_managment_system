@@ -1,0 +1,7 @@
+pytest
+pytest-cov
+pylint
+bandit
+mysql-connector-python
+streamlit
+pandas
