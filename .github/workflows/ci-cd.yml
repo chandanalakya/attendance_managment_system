@@ -7,44 +7,69 @@ on:
     branches: [main]
 
 jobs:
-  build-test:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: 🧾 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: ⚡ Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
 
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Safety: ensure Streamlit is installed even if missing in requirements.txt
           pip install streamlit pytest pytest-cov pylint bandit mysql-connector-python pandas
+      - name: ✅ Build success
+        run: echo "✅ Build stage completed successfully!"
 
-      - name: 🧱 Stage 1 – Build
-        run: echo "✅ Build stage successful (environment ready)"
-
-      - name: 🧪 Stage 2 – Run Tests (with Coverage)
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: 🧾 Checkout code
+        uses: actions/checkout@v4
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 🧪 Run tests
         run: pytest -v --cov=src --cov-report=xml --cov-report=term-missing
 
-      - name: 🧹 Stage 3 – Lint Code
+  lint:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: 🧾 Checkout code
+        uses: actions/checkout@v4
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 🔍 Lint code
         run: pylint src || true
 
-      - name: 🔒 Stage 4 – Security Scan
+  security:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: 🧾 Checkout code
+        uses: actions/checkout@v4
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 🔒 Run Bandit Security Scan
         run: bandit -r src || true
 
-      - name: 🚀 Stage 5 – Deploy (Simulated)
-        run: echo "🎉 Deployment successful! All stages passed."
+  deploy:
+    runs-on: ubuntu-latest
+    needs: security
+    steps:
+      - name: 🧾 Checkout code
+        uses: actions/checkout@v4
+      - name: 🚀 Simulate Deploy
+        run: echo "🎉 Deployment successful! All stages passed!"
