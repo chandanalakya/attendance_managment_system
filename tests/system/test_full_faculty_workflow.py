@@ -19,33 +19,45 @@ def test_full_faculty_workflow(monkeypatch):
         {"class_name": "B.Tech CSE - A", "student_name": "Rahul Verma", "status": "Present"},
     ]
 
-    # ✅ Mock connection with a fake cursor
+    # ✅ Mock DB connection + cursor behavior
     class MockCursor:
-        def execute(self, *args, **kwargs): pass
-        def fetchone(self): return mock_faculty
-        def fetchall(self): return []
+        def execute(self, query, params=None):
+            self.query = query
+            self.params = params
+
+        def fetchone(self):
+            if "faculty" in self.query.lower():
+                return mock_faculty
+            return None
+
+        def fetchall(self):
+            if "class" in self.query.lower():
+                return mock_classes
+            if "student" in self.query.lower():
+                return mock_students
+            if "attendance" in self.query.lower():
+                return mock_records
+            return []
+
         def close(self): pass
 
     class MockConnection:
         def cursor(self, *args, **kwargs): return MockCursor()
         def close(self): pass
 
-    # ✅ Prevent any real DB calls
+    # ✅ Patch connection
     monkeypatch.setattr("src.faculty_attendance.get_connection", lambda: MockConnection())
-    monkeypatch.setattr("src.faculty_attendance.get_faculty", lambda e, p: mock_faculty)
-    monkeypatch.setattr("src.faculty_attendance.get_classes", lambda fid: mock_classes)
-    monkeypatch.setattr("src.faculty_attendance.get_students", lambda cid: mock_students)
-    monkeypatch.setattr("src.faculty_attendance.mark_attendance", lambda *a, **kw: True)
-    monkeypatch.setattr("src.faculty_attendance.get_attendance_records", lambda fid: mock_records)
 
-    # Simulate workflow
+    # Simulate full workflow
     faculty = get_faculty("john@college.edu", "john123")
     classes = get_classes(faculty["id"])
+    assert classes, "Classes list should not be empty"
     students = get_students(classes[0]["id"])
+    assert students, "Students list should not be empty"
     mark_attendance(classes[0]["id"], {s["id"]: True for s in students}, "2025-11-08", "09:00", "10:00")
     records = get_attendance_records(faculty["id"])
 
-    # Assertions
+    # ✅ Validate results
     assert faculty["name"] == "John Smith"
     assert len(classes) == 1
     assert len(students) == 3
