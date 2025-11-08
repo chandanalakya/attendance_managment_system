@@ -1,76 +1,69 @@
-name: CI-CD Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ "main", "develop", "feature/*" ]
   pull_request:
-    branches: [main]
+    branches: [ "main" ]
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '18'
-          cache: 'npm'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          if [ -f package.json ]; then
-            npm ci
-          else
-            echo "No package.json found, skipping npm install"
-          fi
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pylint bandit mysql-connector-python streamlit pandas
 
-      - name: Run linting
+      - name: Run Unit, Integration & System Tests
         run: |
-          if [ -f package.json ] && npm list --depth=0 | grep -q eslint; then
-            npm run lint
-          else
-            echo "No linting configured, skipping..."
-          fi
+          pytest -v --cov=src --cov-report=term-missing
 
-      - name: Run tests
+      - name: Run Lint (Pylint)
         run: |
-          if [ -f package.json ] && npm list --depth=0 | grep -q jest; then
-            npm test
-          else
-            echo "No tests configured, skipping..."
-          fi
+          pylint src/ --exit-zero
 
-      - name: Build application
+      - name: Run Security Scan (Bandit)
         run: |
-          if [ -f package.json ]; then
-            npm run build --if-present
-          else
-            echo "No build script found, skipping..."
-          fi
+          bandit -r src/ -f json -o security-report.json || true
 
-      - name: Security audit
-        run: |
-          if [ -f package.json ]; then
-            npm audit --audit-level=high
-          else
-            echo "No package.json found, skipping security audit"
-          fi
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+      - name: Upload Security Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.json
 
   deploy:
-    needs: build
+    needs: build-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
-      - name: Deploy to staging
-        run: echo "Deploying to staging environment..."
-        
-      - name: Run integration tests
-        run: echo "Running integration tests..."
-        
-      - name: Deploy to production
-        run: echo "Deploying to production environment..."
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Deployment Artifact
+        run: |
+          zip -r deployment_artifact.zip src/ tests/ htmlcov/ security-report.json
+          echo "Deployment artifact created successfully!"
+
+      - name: Upload Deployment Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment_artifact
+          path: deployment_artifact.zip
