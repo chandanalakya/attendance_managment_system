@@ -43,6 +43,7 @@ def test_full_faculty_workflow(monkeypatch):
 
     class MockConnection:
         def cursor(self, *args, **kwargs): return MockCursor()
+        def commit(self): pass        # ✅ Added commit() method
         def close(self): pass
 
     # ✅ Patch connection
