@@ -19,8 +19,19 @@ def test_full_faculty_workflow(monkeypatch):
         {"class_name": "B.Tech CSE - A", "student_name": "Rahul Verma", "status": "Present"},
     ]
 
+    # ✅ Mock connection with a fake cursor
+    class MockCursor:
+        def execute(self, *args, **kwargs): pass
+        def fetchone(self): return mock_faculty
+        def fetchall(self): return []
+        def close(self): pass
+
+    class MockConnection:
+        def cursor(self, *args, **kwargs): return MockCursor()
+        def close(self): pass
+
     # ✅ Prevent any real DB calls
-    monkeypatch.setattr("src.faculty_attendance.get_connection", lambda: True)
+    monkeypatch.setattr("src.faculty_attendance.get_connection", lambda: MockConnection())
     monkeypatch.setattr("src.faculty_attendance.get_faculty", lambda e, p: mock_faculty)
     monkeypatch.setattr("src.faculty_attendance.get_classes", lambda fid: mock_classes)
     monkeypatch.setattr("src.faculty_attendance.get_students", lambda cid: mock_students)
