@@ -1,121 +1,50 @@
-name: 🚀 CI/CD Pipeline (Python Faculty Attendance System)
+name: Python 5-Stage CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "develop", "feature/*" ]
+    branches: [main, develop, feature/*]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
-  # ===============================================================
-  # 1️⃣ BUILD JOB
-  # ===============================================================
-  build:
-    name: 🧱 Build
+  build-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: 🧾 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies
+      - name: ⚡ Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Safety net: install Streamlit explicitly in case requirements.txt fails
-          pip install streamlit
+          # Safety: ensure Streamlit is installed even if missing in requirements.txt
+          pip install streamlit pytest pytest-cov pylint bandit mysql-connector-python pandas
 
+      - name: 🧱 Stage 1 – Build
+        run: echo "✅ Build stage successful (environment ready)"
 
-
-  # ===============================================================
-  # 2️⃣ TEST JOB
-  # ===============================================================
-  test:
-    name: 🧪 Run Tests
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Dependencies
-        run: pip install pytest pytest-cov
-
-      - name: Run Pytest
+      - name: 🧪 Stage 2 – Run Tests (with Coverage)
         run: pytest -v --cov=src --cov-report=xml --cov-report=term-missing
 
-  # ===============================================================
-  # 3️⃣ COVERAGE JOB
-  # ===============================================================
-  coverage:
-    name: 📊 Coverage
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Generate Coverage Report
-        run: |
-          echo "📈 Generating test coverage summary..."
-          mkdir -p reports
-          echo "Coverage: 95%" > reports/coverage-summary.txt
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: reports/coverage-summary.txt
+      - name: 🧹 Stage 3 – Lint Code
+        run: pylint src || true
 
-  # ===============================================================
-  # 4️⃣ LINT JOB
-  # ===============================================================
-  lint:
-    name: 🧹 Lint
-    runs-on: ubuntu-latest
-    needs: coverage
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Pylint
-        run: |
-          echo "🔍 Running code quality checks..."
-          pip install pylint
-          pylint src || true
-          echo "✅ Linting completed."
+      - name: 🔒 Stage 4 – Security Scan
+        run: bandit -r src || true
 
-  # ===============================================================
-  # 5️⃣ SECURITY JOB
-  # ===============================================================
-  security:
-    name: 🔒 Security Scan
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Bandit
-        run: |
-          pip install bandit
-          bandit -r src -f txt -o security-report.txt || true
-      - name: Upload Security Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-report
-          path: security-report.txt
-
-  # ===============================================================
-  # 6️⃣ DEPLOY JOB
-  # ===============================================================
-  deploy:
-    name: 🚀 Deploy
-    runs-on: ubuntu-latest
-    needs: security
-    steps:
-      - name: Simulate Deployment
-        run: |
-          echo "🚀 All stages passed successfully!"
-          echo "Deploying Faculty Attendance Management System..."
-          echo "✅ Deployment simulation complete."
+      - name: 🚀 Stage 5 – Deploy (Simulated)
+        run: echo "🎉 Deployment successful! All stages passed."
