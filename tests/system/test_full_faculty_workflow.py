@@ -1,11 +1,11 @@
+# tests/system/test_full_faculty_workflow.py
 from src.faculty_attendance import (
     get_faculty, get_classes, get_students, mark_attendance, get_attendance_records
 )
 
 def test_full_faculty_workflow(monkeypatch):
-    """Full faculty login → class → students → attendance → view records (mocked DB)."""
+    """Simulate the entire faculty workflow with a fully-mocked DB connection."""
 
-    # Mock data for the workflow
     mock_faculty = {"id": 1, "name": "John Smith"}
     mock_classes = [{"id": 101, "name": "B.Tech CSE - A"}]
     mock_students = [
@@ -19,46 +19,36 @@ def test_full_faculty_workflow(monkeypatch):
         {"class_name": "B.Tech CSE - A", "student_name": "Rahul Verma", "status": "Present"},
     ]
 
-    # ✅ Mock DB connection + cursor behavior
+    # ---- complete mock connection ----
     class MockCursor:
-        def execute(self, query, params=None):
-            self.query = query
-            self.params = params
-
-        def fetchone(self):
-            if "faculty" in self.query.lower():
-                return mock_faculty
-            return None
-
+        def execute(self, query, params=None):  # accept any SQL
+            self.query, self.params = query, params
+        def fetchone(self): return mock_faculty
         def fetchall(self):
-            if "class" in self.query.lower():
-                return mock_classes
-            if "student" in self.query.lower():
-                return mock_students
-            if "attendance" in self.query.lower():
-                return mock_records
+            if "class" in self.query.lower(): return mock_classes
+            if "student" in self.query.lower(): return mock_students
+            if "attendance" in self.query.lower(): return mock_records
             return []
-
         def close(self): pass
 
     class MockConnection:
-        def cursor(self, *args, **kwargs): return MockCursor()
-        def commit(self): pass        # ✅ Added commit() method
+        def cursor(self, *a, **kw): return MockCursor()
+        def commit(self): pass
+        def rollback(self): pass
         def close(self): pass
 
-    # ✅ Patch connection
+    # patch DB connection so every function uses the mock
     monkeypatch.setattr("src.faculty_attendance.get_connection", lambda: MockConnection())
 
-    # Simulate full workflow
+    # run full workflow
     faculty = get_faculty("john@college.edu", "john123")
     classes = get_classes(faculty["id"])
-    assert classes, "Classes list should not be empty"
     students = get_students(classes[0]["id"])
-    assert students, "Students list should not be empty"
-    mark_attendance(classes[0]["id"], {s["id"]: True for s in students}, "2025-11-08", "09:00", "10:00")
+    mark_attendance(classes[0]["id"], {s["id"]: True for s in students},
+                    "2025-11-08", "09:00", "10:00")
     records = get_attendance_records(faculty["id"])
 
-    # ✅ Validate results
+    # verify logic
     assert faculty["name"] == "John Smith"
     assert len(classes) == 1
     assert len(students) == 3
