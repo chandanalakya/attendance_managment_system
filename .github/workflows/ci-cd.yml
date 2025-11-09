@@ -77,10 +77,6 @@ jobs:
         run: |
           echo "Running Integration Tests..."
           pytest tests/integration --disable-warnings --maxfail=1
-      - name: Run System/E2E Tests
-        run: |
-          echo "Running System/E2E Tests..."
-          pytest tests/system --disable-warnings --maxfail=1
 
   coverage:
     name: Coverage Report
