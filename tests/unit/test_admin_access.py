@@ -33,7 +33,11 @@ def test_faculty_cannot_edit():
 
 def test_admin_module_has_login_user_function():
     """Check that login_user function exists in admin_module."""
-    assert hasattr(admin_module, "login_user")
+    assert hasattr(
+    admin_module,
+    "login_user"
+)
+
 
 
 def test_admin_module_login_user(monkeypatch):
