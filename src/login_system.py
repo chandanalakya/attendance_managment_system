@@ -3,10 +3,12 @@ import pandas as pd
 import mysql.connector
 import hashlib
 import datetime
+import os
 
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Attendance Dashboard", layout="wide")
 LOCK_DURATION = datetime.timedelta(minutes=30)  # ⏱️ Unlock after 30 minutes
+
 
 # ---------- DATABASE CONNECTION ----------
 def get_connection():
@@ -17,12 +19,15 @@ def get_connection():
         database="login_db"  # ✅ database name
     )
 
+
 # ---------- PASSWORD HASH ----------
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+
 # ---------- INITIAL SETUP ----------
 def setup_database():
+    """Create database tables and insert sample data if not present."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -84,8 +89,10 @@ def setup_database():
 
     conn.close()
 
+
 # ---------- VERIFY USER ----------
 def verify_user(username, password):
+    """Validate username and password with lockout after 5 failed attempts."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
 
@@ -134,6 +141,7 @@ def verify_user(username, password):
         else:
             return False, f"❌ Wrong password. Attempts left: {5 - new_attempts}"
 
+
 # ---------- LOAD ATTENDANCE ----------
 @st.cache_data
 def load_attendance():
@@ -143,8 +151,13 @@ def load_attendance():
     conn.close()
     return df
 
+
 # ---------- MAIN APP ----------
-setup_database()
+if os.getenv("GITHUB_ACTIONS") == "true":
+    print("⚙️ Running in CI/CD mode — skipping database setup.")
+else:
+    setup_database()  # ✅ defined before calling it
+
 st.title("🎓 Student Attendance Management System")
 
 st.sidebar.header("🔐 Login")
