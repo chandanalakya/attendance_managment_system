@@ -6,6 +6,7 @@ import pathlib
 from dotenv import load_dotenv
 import pandas as pd
 
+
 # -----------------------
 # Load environment variables
 # -----------------------
@@ -18,13 +19,16 @@ DB_USER = os.getenv("DB_USER", "root")
 DB_PASS = os.getenv("DB_PASS", "")
 DB_NAME = os.getenv("DB_NAME", "sams_db")
 
+
 st.set_page_config(page_title="SAMS - Faculty Portal", layout="wide")
+
 
 # -----------------------
 # Session initialization
 # -----------------------
 if "user" not in st.session_state:
     st.session_state.user = None
+
 
 # -----------------------
 # DB connection & helpers
@@ -112,6 +116,7 @@ def verify_password(pw, pw_hash):
 menu = ["Login", "Register"]
 choice = st.sidebar.selectbox("Navigation", menu)
 
+
 # -----------------------
 # Registration
 # -----------------------
@@ -130,6 +135,7 @@ if choice == "Register":
             st.success(
                 "✅ Registration successful! Waiting for admin approval."
             )
+
 
 # -----------------------
 # Login
@@ -184,4 +190,4 @@ elif choice == "Login":
 
         if st.button("Logout"):
             st.session_state.user = None
-            st.experimental_rerun()  # no trailing whitespace
+            st.experimental_rerun()
