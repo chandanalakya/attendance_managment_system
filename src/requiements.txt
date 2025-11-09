@@ -1,4 +1,9 @@
+streamlit
+flask
 pytest
-pytest-mock
-mysql-connector-python
+pytest-cov
+hypothesis
+mock
+sqlite-utils
+bcrypt
 python-dotenv
