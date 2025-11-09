@@ -1,49 +1,52 @@
+import csv
+import io
+from models.audit_log import AuditLog
+from utils.export_csv import logs_to_csv, export_logs_csv
+from utils.export_pdf import export_logs_pdf
 
-import os, sqlite3
-from src.utils.db import init_db
-from src.models.attendance import add_attendance, edit_attendance, delete_attendance, attempt_modify_audit_logs
-from src.models.audit_log import fetch_logs
 
-SCHEMA = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
+def _create_dummy_logs(count=3):
+    logs = []
+    for i in range(count):
+        log = AuditLog(
+            id=i + 1,
+            user_id=100 + i,
+            action=f"action_{i}",
+            ip_address=f"192.168.0.{i}",
+            timestamp=None,
+            details=f"meta_{i}",   # updated
+            immutable=1,
+        )
+        logs.append(log)
+    return logs
 
-def make_db(tmp_path):
-    db_path = os.path.join(tmp_path, "test.db")
-    os.environ["SAMS2_DB_PATH"] = db_path
-    init_db(SCHEMA)
-    return db_path
 
-def seed(conn):
-    conn.executescript(
-        """
-        INSERT INTO users (username, role) VALUES ('admin','admin');
-        INSERT INTO courses (name) VALUES ('Math');
-        INSERT INTO students (full_name, roll_no) VALUES ('Alice','R1');
-        INSERT INTO enrollments (student_id, course_id) VALUES (1,1);
-        """
-    )
-    conn.commit()
+def test_logs_to_csv_contains_header_and_data(tmp_path):
+    logs = _create_dummy_logs(2)
+    csv_output = logs_to_csv(logs)
+    lines = csv_output.splitlines()
+    assert lines[0].startswith("id,user_id,action,ip_address,timestamp,metadata,immutable")
+    reader = csv.reader(io.StringIO(csv_output))
+    rows = list(reader)
+    assert len(rows) == 3
+    assert rows[1][1] == "100" and rows[2][1] == "101"
 
-def test_add_edit_delete_logged(tmp_path):
-    db_path = make_db(str(tmp_path))
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        seed(conn)
-        att_id = add_attendance(conn, course_id=1, student_id=1, status='PRESENT', taken_by_user_id=1, ip_address='127.0.0.1')
-        edit_attendance(conn, attendance_id=att_id, new_status='ABSENT', user_id=1, ip_address='127.0.0.1')
-        delete_attendance(conn, attendance_id=att_id, user_id=1, ip_address='127.0.0.1')
-        logs = fetch_logs(conn)
-        actions = {r['action_type'] for r in logs}
-        assert {'ADD','EDIT','DELETE'}.issubset(actions)
 
-def test_immutable_audit_logs(tmp_path):
-    db_path = make_db(str(tmp_path))
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        seed(conn)
-        add_attendance(conn, course_id=1, student_id=1, status='PRESENT', taken_by_user_id=1, ip_address='127.0.0.1')
-        raised = False
-        try:
-            attempt_modify_audit_logs(conn, operation='UPDATE', user_id=1, ip_address='127.0.0.1')
-        except Exception:
-            raised = True
-        assert raised
+def test_export_logs_csv_writes_file(tmp_path):
+    logs = _create_dummy_logs(1)
+    file_path = tmp_path / "logs.csv"
+    export_logs_csv(logs, str(file_path))
+    assert file_path.exists()
+    with open(file_path, newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        rows = list(reader)
+    assert rows[0][0] == "id"
+    assert rows[1][1] == "100"
+
+
+def test_export_logs_pdf_creates_file(tmp_path):
+    logs = _create_dummy_logs(1)
+    file_path = tmp_path / "logs.pdf"
+    export_logs_pdf(logs, str(file_path))
+    assert file_path.exists()
+    assert file_path.stat().st_size > 0

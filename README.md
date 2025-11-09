@@ -107,6 +107,35 @@ npm test
 npm run test:coverage
 ```
 
+# SAMS2 — Student Attendance Management System (Audit Logging)
+
+Stack: **Python + Streamlit**, SQLite, `schema.sql`, PyTest, GitHub Actions CI.
+
+## Features
+- Logs every attendance **Add/Edit/Delete** with timestamp, user ID, and IP.
+- Audit logs stored **separately** and **immutable** (DB triggers block update/delete).
+- Admin can filter by **date**, **user**, **course** in the Streamlit UI.
+- Export logs to **CSV** or **PDF**.
+- Attempts to modify logs are **blocked**, **logged as security events**, and surfaced in UI via error toast.
+
+## Quick start
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+The first run creates `sams2.db` using `schema.sql`.
+
+## Tests
+```bash
+pytest -q
+```
+
+## CI
+See `.github/workflows/ci.yml` — runs lint + tests on every push/PR.
+
+
 ## 📄 License
 
 This project is developed for educational purposes as part of the PES University UE23CS341A curriculum.
