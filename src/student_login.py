@@ -16,7 +16,7 @@ load_dotenv(dotenv_path=env_path, override=True)
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", 3306))
 DB_USER = os.getenv("DB_USER", "root")
-DB_PASS = os.getenv("DB_PASS", "Lakshmireddy@1")  # Matches CI/CD password
+DB_PASS = os.getenv("DB_PASS", "Aazz123@@")  # Matches CI/CD password
 DB_NAME = os.getenv("DB_NAME", "sams_db")         # Default local DB
 
 # ============================
