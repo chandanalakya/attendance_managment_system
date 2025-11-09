@@ -19,18 +19,17 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=10
 
     env:
-      MYSQL_HOST: mysql
+      MYSQL_HOST: 127.0.0.1
       MYSQL_USER: root
       MYSQL_PASSWORD: root
       MYSQL_DATABASE: login_db
-      PYTHONUNBUFFERED: 1
-      GITHUB_ACTIONS: true
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout Repository
@@ -47,14 +46,15 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov mysql-connector-python streamlit pandas
 
-      - name: Wait for MySQL to be Ready
+      - name: Wait for MySQL to be ready
         run: |
-          for i in {1..15}; do
-            if mysqladmin ping -h "mysql" -uroot -proot --silent; then
+          echo "⏳ Waiting for MySQL to start..."
+          for i in {1..20}; do
+            if mysqladmin ping -h127.0.0.1 -proot --silent; then
               echo "✅ MySQL is ready!"
               break
             fi
-            echo "Waiting for MySQL..."
+            echo "Waiting..."
             sleep 5
           done
 
