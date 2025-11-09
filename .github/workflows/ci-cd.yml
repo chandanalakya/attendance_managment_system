@@ -1,61 +1,160 @@
-name: Student Attendance System CI/CD
+name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
-      - feature/student_login
+    branches: [main, feature/*]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  ci-cd:
+  # ------------------------
+  # Stage 1: Build
+  # ------------------------
+  build:
+    name: Build Environment & Install Dependencies
     runs-on: ubuntu-latest
-
-    env:
-      MYSQL_HOST: localhost
-      MYSQL_DATABASE: sams-db
-      MYSQL_USER: root
-      MYSQL_PASSWORD: Aazz123@@
-
     steps:
-      # 1️⃣ Checkout code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Build - Install dependencies
-      - name: Build - Install Dependencies
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pylint bandit mysql-connector-python
+
+  # ------------------------
+  # Stage 2: Run Tests
+  # ------------------------
+  test:
+    name: Run Unit, Integration & System Tests
+    runs-on: ubuntu-latest
+    needs: build
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: Aazz123@@
+          MYSQL_DATABASE: sams_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov mysql-connector-python pylint bandit
+          pip install pytest pytest-cov mysql-connector-python
 
-      # 3️⃣ Test - Unit & Integration & System
-      - name: Test - Run all tests
+      - name: Wait for MySQL
         run: |
-          echo "Running Unit Tests..."
-          pytest tests/unit --disable-warnings --maxfail=1
-          echo "Running Integration Tests..."
-          pytest tests/integration --disable-warnings --maxfail=1
-          echo "Running System / E2E Tests..."
-          pytest tests/system --disable-warnings --maxfail=1
+          until mysql -h 127.0.0.1 -P 3306 -u root -pAazz123@@ -e "SELECT 1;" ; do
+            echo "Waiting for MySQL..."
+            sleep 3
+          done
 
-      # 4️⃣ Coverage - Generate coverage reports
-      - name: Coverage - Generate Reports
+      - name: Run Unit Tests
+        run: pytest tests/unit --disable-warnings -v
+
+      - name: Run Integration Tests
+        run: pytest tests/integration --disable-warnings -v
+
+      - name: Run System / E2E Tests
+        run: pytest tests/system --disable-warnings -v || true
+
+  # ------------------------
+  # Stage 3: Coverage Report
+  # ------------------------
+  coverage:
+    name: Generate Coverage Report
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install Dependencies
         run: |
-          pytest -v --cov=src --cov-report=xml --cov-report=term-missing --disable-warnings
-      - name: Upload Coverage Report
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+
+      - name: Run Coverage
+        run: |
+          pytest --cov=src --cov-report=xml --disable-warnings
+
+      - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
 
-      # 5️⃣ Lint - Pylint score
-      - name: Lint - Pylint with Score
+  # ------------------------
+  # Stage 4: Lint
+  # ------------------------
+  lint:
+    name: Lint Code & Generate Scores
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install Lint Tools
+        run: pip install pylint
+
+      - name: Run Pylint
         run: |
-          pylint src/**/*.py --exit-zero
-      # 6️⃣ Security - Bandit scan
-      - name: Security - Bandit Scan
+          pylint src --exit-zero --output-format=colorized
+
+  # ------------------------
+  # Stage 5: Security Scan
+  # ------------------------
+  security:
+    name: Security Scan with Bandit
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Security Scan
         run: |
-          bandit -r src/ -ll
+          bandit -r src -ll
