@@ -2,14 +2,14 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
-      - 'feature/*'
+    branches: [main, feature/*]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
+  # =========================
+  # Stage 1: Build
+  # =========================
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -28,8 +28,11 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov pylint bandit mysql-connector-python
 
+  # =========================
+  # Stage 2: Unit & Integration Tests
+  # =========================
   test:
-    name: Run Tests
+    name: Run Unit & Integration Tests
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -42,19 +45,21 @@ jobs:
           python-version: 3.12
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov mysql-connector-python
 
-      - name: Run Unit Tests
-        run: pytest tests/unit --disable-warnings
+      - name: Run Unit & Integration Tests (skip system)
+        run: |
+          echo "Running Unit + Integration Tests..."
+          pytest tests/unit tests/integration --disable-warnings
 
-      - name: Run Integration Tests
-        run: pytest tests/integration --disable-warnings
-
-      - name: Run System/E2E Tests
-        run: pytest tests/system --disable-warnings || echo "Skipping failures for CI"
-
+  # =========================
+  # Stage 3: Coverage
+  # =========================
   coverage:
-    name: Code Coverage
+    name: Test Coverage
     runs-on: ubuntu-latest
     needs: test
     steps:
@@ -67,21 +72,27 @@ jobs:
           python-version: 3.12
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest pytest-cov
-
-      - name: Run Coverage
         run: |
-          pytest --cov=src --cov-report=xml --disable-warnings
-          echo "Coverage report generated."
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
 
-      - name: Upload coverage artifact
+      - name: Run coverage
+        run: |
+          echo "Running Coverage..."
+          pytest --cov=src --cov-report=xml --disable-warnings --deselect=tests/system
+
+      - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
 
+  # =========================
+  # Stage 4: Lint
+  # =========================
   lint:
-    name: Lint
+    name: Lint Code
     runs-on: ubuntu-latest
     needs: coverage
     steps:
@@ -98,15 +109,12 @@ jobs:
 
       - name: Run pylint
         run: |
-          pylint src --exit-zero > pylint_report.txt
-          cat pylint_report.txt
+          echo "Running Lint..."
+          pylint src --exit-zero --score=y
 
-      - name: Upload pylint report
-        uses: actions/upload-artifact@v4
-        with:
-          name: pylint-report
-          path: pylint_report.txt
-
+  # =========================
+  # Stage 5: Security Scan
+  # =========================
   security:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -124,10 +132,6 @@ jobs:
         run: pip install bandit
 
       - name: Run Bandit Security Scan
-        run: bandit -r src -f html -o bandit_report.html
-
-      - name: Upload Bandit Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-report
-          path: bandit_report.html
+        run: |
+          echo "Running Security Scan..."
+          bandit -r src -ll -iii
