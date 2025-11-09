@@ -11,13 +11,28 @@ LOCK_DURATION = datetime.timedelta(minutes=30)  # ⏱️ Unlock after 30 minutes
 
 
 # ---------- DATABASE CONNECTION ----------
+# def get_connection():
+#     return mysql.connector.connect(
+#         host="localhost",
+#         user="root",  # your MySQL username
+#         password="Lakshmireddy@1",  # your MySQL password
+#         database="login_db"  # ✅ database name
+#     )
+
 def get_connection():
+    import os
+    host = os.getenv("MYSQL_HOST", "localhost")
+    user = os.getenv("MYSQL_USER", "root")
+    password = os.getenv("MYSQL_PASSWORD", "Lakshmireddy@1")
+    database = os.getenv("MYSQL_DATABASE", "login_db")
+
     return mysql.connector.connect(
-        host="localhost",
-        user="root",  # your MySQL username
-        password="Lakshmireddy@1",  # your MySQL password
-        database="login_db"  # ✅ database name
+        host=host,
+        user=user,
+        password=password,
+        database=database
     )
+
 
 
 # ---------- PASSWORD HASH ----------

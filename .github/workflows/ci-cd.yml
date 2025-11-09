@@ -24,6 +24,14 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+    env:
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: login_db
+      PYTHONUNBUFFERED: 1
+      GITHUB_ACTIONS: true
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -39,11 +47,11 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov mysql-connector-python streamlit pandas
 
-      - name: Wait for MySQL
+      - name: Wait for MySQL to be Ready
         run: |
-          for i in {1..10}; do
-            if mysqladmin ping -h "127.0.0.1" --silent; then
-              echo "MySQL is up!"
+          for i in {1..15}; do
+            if mysqladmin ping -h "mysql" -uroot -proot --silent; then
+              echo "✅ MySQL is ready!"
               break
             fi
             echo "Waiting for MySQL..."
