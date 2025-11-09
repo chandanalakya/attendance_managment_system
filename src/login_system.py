@@ -1,60 +1,33 @@
 import streamlit as st
 import pandas as pd
+import mysql.connector
 import hashlib
 import datetime
 import os
 
-# ==========================================================
-#  Detect if running inside GitHub Actions (CI/CD environment)
-# ==========================================================
-IS_CI = os.getenv("GITHUB_ACTIONS") == "true"
-
-# ==========================================================
-#  Streamlit Config
-# ==========================================================
+# ---------- CONFIG ----------
 st.set_page_config(page_title="Attendance Dashboard", layout="wide")
-LOCK_DURATION = datetime.timedelta(minutes=30)  # Unlock after 30 mins
+LOCK_DURATION = datetime.timedelta(minutes=30)  # ⏱️ Unlock after 30 minutes
 
 
-# ==========================================================
-#  Database Connection (mocked in CI)
-# ==========================================================
+# ---------- DATABASE CONNECTION ----------
 def get_connection():
-    if IS_CI:
-        print("🧪 Mocking MySQL connection in CI...")
-        class MockCursor:
-            def execute(self, *a, **k): pass
-            def fetchone(self): return [0]
-            def fetchall(self): return []
-            def close(self): pass
-
-        class MockConn:
-            def cursor(self, *a, **k): return MockCursor()
-            def commit(self): pass
-            def close(self): pass
-
-        return MockConn()
-    else:
-        import mysql.connector
-        return mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="Lakshmireddy@1",  # 🔒 replace with your local MySQL password
-            database="login_db"
-        )
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",  # your MySQL username
+        password="Lakshmireddy@1",  # your MySQL password
+        database="login_db"  # ✅ database name
+    )
 
 
-# ==========================================================
-#  Password Hashing
-# ==========================================================
+# ---------- PASSWORD HASH ----------
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-# ==========================================================
-#  Database Setup (skipped in CI/CD)
-# ==========================================================
+# ---------- INITIAL SETUP ----------
 def setup_database():
+    """Create database tables and insert sample data if not present."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -83,7 +56,7 @@ def setup_database():
     )
     """)
 
-    # Sample users
+    # Insert sample users if table empty
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         users = [
@@ -91,11 +64,10 @@ def setup_database():
             ("faculty1", hash_password("faculty123"), "Faculty"),
             ("faculty2", hash_password("faculty456"), "Faculty")
         ]
-        cursor.executemany(
-            "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)", users)
+        cursor.executemany("INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)", users)
         conn.commit()
 
-    # Sample attendance
+    # Insert sample attendance data if table empty
     cursor.execute("SELECT COUNT(*) FROM attendance")
     if cursor.fetchone()[0] == 0:
         data = [
@@ -118,12 +90,11 @@ def setup_database():
     conn.close()
 
 
-# ==========================================================
-#  User Verification with Lockout Logic
-# ==========================================================
+# ---------- VERIFY USER ----------
 def verify_user(username, password):
+    """Validate username and password with lockout after 5 failed attempts."""
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True) if not IS_CI else conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     user = cursor.fetchone()
@@ -132,28 +103,30 @@ def verify_user(username, password):
         conn.close()
         return False, "❌ Invalid username"
 
-    if not IS_CI and user["is_locked"]:
+    # If account is locked, check if 30 mins passed
+    if user["is_locked"]:
         if user["last_failed_time"]:
             last = user["last_failed_time"]
             if datetime.datetime.now() - last > LOCK_DURATION:
+                # Unlock automatically
                 cursor.execute(
                     "UPDATE users SET is_locked=FALSE, failed_attempts=0, last_failed_time=NULL WHERE username=%s",
                     (username,)
                 )
                 conn.commit()
                 conn.close()
-                return False, "✅ Account automatically unlocked. Try again."
+                return False, "✅ Account automatically unlocked. Please try logging in again."
         conn.close()
-        return False, "🔒 Account locked. Try after 30 minutes."
+        return False, "🔒 Account locked due to too many failed attempts. Try again later."
 
+    # If password is correct
     if hash_password(password) == user["password_hash"]:
-        if not IS_CI:
-            cursor.execute("UPDATE users SET failed_attempts=0, last_failed_time=NULL WHERE username=%s", (username,))
-            conn.commit()
+        cursor.execute("UPDATE users SET failed_attempts=0, last_failed_time=NULL WHERE username=%s", (username,))
+        conn.commit()
         conn.close()
         return True, user["role"]
-
-    if not IS_CI:
+    else:
+        # Wrong password attempt
         new_attempts = user["failed_attempts"] + 1
         locked = new_attempts >= 5
         cursor.execute(
@@ -162,46 +135,31 @@ def verify_user(username, password):
         )
         conn.commit()
         conn.close()
-        return False, "🔒 Account locked after 5 failed attempts." if locked else f"❌ Wrong password. Attempts left: {5 - new_attempts}"
 
-    conn.close()
-    return False, "❌ Invalid login (mocked CI mode)"
+        if locked:
+            return False, "🔒 Account locked after 5 failed attempts. Please wait 30 minutes."
+        else:
+            return False, f"❌ Wrong password. Attempts left: {5 - new_attempts}"
 
 
-# ==========================================================
-#  Attendance Loader
-# ==========================================================
+# ---------- LOAD ATTENDANCE ----------
 @st.cache_data
 def load_attendance():
     conn = get_connection()
     query = "SELECT student_id, student_name, course, faculty, attendance_percentage FROM attendance"
-    if IS_CI:
-        # Mocked CI dataset
-        return pd.DataFrame([{
-            "student_id": "S001",
-            "student_name": "Aarav Sharma",
-            "course": "Mock Course",
-            "faculty": "faculty1",
-            "attendance_percentage": 85.0
-        }])
     df = pd.read_sql(query, conn)
     conn.close()
     return df
 
 
-# ==========================================================
-#  Setup (Skip in CI/CD)
-# ==========================================================
-if not IS_CI:
-    setup_database()
+# ---------- MAIN APP ----------
+if os.getenv("GITHUB_ACTIONS") == "true":
+    print("⚙️ Running in CI/CD mode — skipping database setup.")
 else:
-    print("🚀 CI mode: Skipping MySQL setup.")
+    setup_database()  # ✅ defined before calling it
 
-
-# ==========================================================
-#  Streamlit UI
-# ==========================================================
 st.title("🎓 Student Attendance Management System")
+
 st.sidebar.header("🔐 Login")
 
 username = st.sidebar.text_input("Username")
@@ -218,17 +176,23 @@ if login_btn:
 
         if role == "Faculty":
             st.subheader("👩‍🏫 Faculty Dashboard")
+
             faculty_courses = df[df["faculty"] == username]["course"].unique()
             if len(faculty_courses) == 0:
                 st.info("No courses assigned to you.")
             else:
                 selected_course = st.selectbox("Select Course:", faculty_courses)
                 faculty_data = df[(df["faculty"] == username) & (df["course"] == selected_course)]
+
                 st.write(f"### Students in {selected_course}")
-                st.dataframe(faculty_data[["student_id", "student_name", "attendance_percentage"]].sort_values(by="student_id"))
+                st.dataframe(
+                    faculty_data[["student_id", "student_name", "attendance_percentage"]]
+                    .sort_values(by="student_id")
+                )
 
         elif role == "Admin":
             st.subheader("🧑‍💼 Admin Dashboard")
+
             selected_course = st.selectbox("Select Course to Review:", df["course"].unique())
             low_attendance = df[(df["course"] == selected_course) & (df["attendance_percentage"] < 75)]
 
@@ -236,6 +200,9 @@ if login_btn:
                 st.success(f"✅ All students in {selected_course} have ≥75% attendance.")
             else:
                 st.error(f"⚠️ Students below 75% in {selected_course}:")
-                st.dataframe(low_attendance[["student_id", "student_name", "attendance_percentage"]].sort_values(by="attendance_percentage"))
+                st.dataframe(
+                    low_attendance[["student_id", "student_name", "attendance_percentage"]]
+                    .sort_values(by="attendance_percentage")
+                )
     else:
         st.error(info)
