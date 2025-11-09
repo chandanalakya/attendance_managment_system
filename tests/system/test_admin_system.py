@@ -12,9 +12,7 @@ def test_admin_edit_flow(monkeypatch):
     """System test: Admin should be allowed to edit data."""
 
     # Mock: simulate admin user
-    monkeypatch.setattr(
-        admin_module, "get_user_role", lambda email: "admin"
-    )
+    monkeypatch.setattr(admin_module, "get_user_role", lambda email: "admin")
 
     # Mock update_data function
     def mock_update_data(data):
@@ -35,9 +33,7 @@ def test_non_admin_edit_flow(monkeypatch):
     """System test: Faculty should NOT be allowed to edit data."""
 
     # Mock: simulate faculty user
-    monkeypatch.setattr(
-        admin_module, "get_user_role", lambda email: "faculty"
-    )
+    monkeypatch.setattr(admin_module, "get_user_role", lambda email: "faculty")
 
     user_email = "faculty@college.com"
     role = admin_module.get_user_role(user_email)
