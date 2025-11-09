@@ -1,34 +1,30 @@
 import streamlit as st
 import pandas as pd
-from sqlalchemy import create_engine
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import create_engine
+import mysql.connector
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="Attendance Dashboard", layout="wide")
 
-
 # ---------- DATABASE CONNECTION ----------
 @st.cache_data
 def load_data():
-    """Load attendance data from the facAdm database using SQLAlchemy."""
     try:
-        engine = create_engine("mysql+mysqlconnector://root:Lakshmireddy@1@localhost/facAdm")
-
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",              # Your MySQL username
+            password="Lakshmireddy@1",  # Your MySQL password
+            database="facAdm"           # ✅ Database name changed here
+        )
         query = """
-        SELECT student_id, student_name, course, faculty, attendance_percentage
+        SELECT student_id, student_name, course, faculty, attendance_percentage 
         FROM attendance
         """
-
-        with engine.connect() as conn:
-            df = pd.read_sql(query, conn)
-
+        df = pd.read_sql(query, conn)
+        conn.close()
         return df
-
-    except SQLAlchemyError as e:
+    except mysql.connector.Error as e:
         st.error(f"❌ Database connection error: {e}")
         return pd.DataFrame()
-
 
 # ---------- LOAD DATA ----------
 df = load_data()
@@ -45,22 +41,22 @@ else:
     if role == "Faculty":
         st.subheader("👩‍🏫 Faculty Dashboard")
 
+        # Faculty name selection
         faculty_list = df["faculty"].dropna().unique()
         if len(faculty_list) == 0:
             st.info("No faculty data available.")
         else:
             faculty_name = st.sidebar.selectbox("Select Your Name:", faculty_list)
-            faculty_courses = df[df["faculty"] == faculty_name]["course"].unique()
 
+            # Filter courses handled by that faculty
+            faculty_courses = df[df["faculty"] == faculty_name]["course"].unique()
             if len(faculty_courses) == 0:
                 st.info("No courses found for this faculty.")
             else:
                 selected_course = st.sidebar.selectbox("Select a Course You Handle:", faculty_courses)
 
-                faculty_data = df[
-                    (df["faculty"] == faculty_name) &
-                    (df["course"] == selected_course)
-                ]
+                # Show table of students for that course
+                faculty_data = df[(df["faculty"] == faculty_name) & (df["course"] == selected_course)]
 
                 st.write(f"### Students in {selected_course} (Handled by {faculty_name})")
                 st.dataframe(
@@ -73,15 +69,16 @@ else:
     elif role == "Admin":
         st.subheader("🧑‍💼 Admin Dashboard")
 
+        # Select a course
         course_list = df["course"].dropna().unique()
         if len(course_list) == 0:
             st.info("No courses found.")
         else:
             selected_course = st.sidebar.selectbox("Select Course to Review:", course_list)
 
+            # Filter for students below 75%
             low_attendance = df[
-                (df["course"] == selected_course) &
-                (df["attendance_percentage"] < 75)
+                (df["course"] == selected_course) & (df["attendance_percentage"] < 75)
             ]
 
             if low_attendance.empty:
