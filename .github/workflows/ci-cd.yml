@@ -1,13 +1,21 @@
-name: CI/CD Pipeline - Python
+<name: 🧪 CI/CD Pipeline - Python
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+      - feature/*
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
+  # ---------------------------------------
+  # 1️⃣ BUILD STAGE
+  # ---------------------------------------
   build:
+    name: 🏗️ Build
     runs-on: ubuntu-latest
     steps:
       - name: 🛠️ Checkout Repository
@@ -21,22 +29,26 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov flake8 bandit black
-          pip install streamlit pandas mysql-connector-python
+          pip install -r requirements.txt || true
+          pip install pytest pytest-cov flake8 bandit black streamlit mysql-connector-python bcrypt pandas python-dotenv
 
+  # ---------------------------------------
+  # 2️⃣ TEST STAGE
+  # ---------------------------------------
   test:
+    name: 🧪 Run Tests
     runs-on: ubuntu-latest
     needs: build
     services:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: Lakshmireddy@1
-          MYSQL_DATABASE: login_db
+          MYSQL_ROOT_PASSWORD: Aazz123@@
+          MYSQL_DATABASE: sams_db
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-cmd="mysqladmin ping -h localhost"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -50,32 +62,28 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: 📦 Install Test Dependencies
+      - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov streamlit pandas mysql-connector-python
+          pip install pytest pytest-cov streamlit mysql-connector-python bcrypt pandas python-dotenv
 
-      - name: ⏳ Wait for MySQL
-        run: |
-          for i in {1..10}; do
-            if mysqladmin ping -h "127.0.0.1" --silent; then
-              echo "✅ MySQL is up!"
-              break
-            fi
-            echo "⏳ Waiting for MySQL..."
-            sleep 5
-          done
+      - name: ⚙️ Wait for MySQL
+        run: sleep 25
 
-      - name: 🧪 Run Tests
+      - name: 🧪 Run Pytest with Coverage
         env:
-          MYSQL_HOST: 127.0.0.1
-          MYSQL_USER: root
-          MYSQL_PASSWORD: root
-          MYSQL_DATABASE: login_db
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASS: Aazz123@@
+          DB_NAME: sams_db
         run: |
-          pytest -v --cov=src --cov-report=term-missing --disable-warnings
+          pytest -v --maxfail=1 --disable-warnings --cov=src --cov-report=term-missing
 
+  # ---------------------------------------
+  # 3️⃣ COVERAGE STAGE
+  # ---------------------------------------
   coverage:
+    name: 📊 Coverage
     runs-on: ubuntu-latest
     needs: test
     steps:
@@ -89,51 +97,44 @@ jobs:
 
       - name: 📦 Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest pytest-cov streamlit pandas mysql-connector-python
+          pip install pytest pytest-cov
 
       - name: 📊 Generate Coverage Report
         run: |
-          pytest --cov=src --cov-report=xml --cov-report=term-missing --disable-warnings
+          pytest --cov=src --cov-report=xml --cov-report=term-missing
 
+      - name: 📤 Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ---------------------------------------
+  # 4️⃣ LINT STAGE
+  # ---------------------------------------
   lint:
+    name: ✨ Lint
     runs-on: ubuntu-latest
     needs: coverage
     steps:
       - name: 🛠️ Checkout Repository
         uses: actions/checkout@v4
-      - name: 🔍 Run flake8 Linter
+      - name: 🔍 Run flake8
         run: |
           pip install flake8
           flake8 src tests || true
 
-  format:
+  # ---------------------------------------
+  # 5️⃣ SECURITY STAGE
+  # ---------------------------------------
+  security:
+    name: 🔒 Security Scan
     runs-on: ubuntu-latest
     needs: lint
-    steps:
-      - name: 🛠️ Checkout Repository
-        uses: actions/checkout@v4
-      - name: 🎨 Check Code Format (Black)
-        run: |
-          pip install black
-          black --check src tests || true
-
-  security:
-    runs-on: ubuntu-latest
-    needs: format
     steps:
       - name: 🛠️ Checkout Repository
         uses: actions/checkout@v4
       - name: 🔒 Run Bandit Security Scan
         run: |
           pip install bandit
-          bandit -r src/ -f txt -o security-report.txt || true
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: security
-    steps:
-      - name: 🚀 Simulate Deployment
-        run: |
-          echo "✅ All stages passed successfully!"
-          echo "🚀 Deploying application (simulation)..."
+          bandit -r src/ -ll || true
