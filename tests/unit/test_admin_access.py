@@ -34,10 +34,9 @@ def test_faculty_cannot_edit():
 def test_admin_module_has_login_user_function():
     """Check that login_user function exists in admin_module."""
     assert hasattr(
-    admin_module,
-    "login_user"
-)
-
+        admin_module,
+        "login_user"
+    )
 
 
 def test_admin_module_login_user(monkeypatch):
@@ -51,12 +50,16 @@ def test_admin_module_login_user(monkeypatch):
             "email": email,
             "password_hash": "fakehash",
             "role": "admin",
-            "is_approved": True,
-        },
+            "is_approved": True
+        }
     )
 
     # Mock verify_password
-    monkeypatch.setattr(admin_module, "verify_password", lambda pw, pw_hash: True)
+    monkeypatch.setattr(
+        admin_module,
+        "verify_password",
+        lambda pw, pw_hash: True
+    )
 
     ok, user = admin_module.login_user("admin@college.com", "password")
     assert ok is True
