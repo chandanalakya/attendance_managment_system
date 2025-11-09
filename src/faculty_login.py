@@ -187,7 +187,7 @@ elif choice == "Login":
                     designation,
                 )
                 st.success("✅ Profile saved successfully!")
-
+#whit space removed
         if st.button("Logout"):
             st.session_state.user = None
             st.experimental_rerun()
