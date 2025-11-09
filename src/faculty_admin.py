@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import create_engine
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="Attendance Dashboard", layout="wide")
