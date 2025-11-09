@@ -1,7 +1,7 @@
 import importlib.util
 
 
-# Load the faculty_login module dynamically
+# Load faculty_login module dynamically
 spec = importlib.util.spec_from_file_location(
     "faculty_login", "src/faculty_login.py"
 )
@@ -29,4 +29,6 @@ def test_faculty_login_system(monkeypatch):
     user = faculty_module.find_user_by_email(email)
 
     assert user["is_approved"] is True
-    assert faculty_module.verify_password(password, user["password_hash"]) is True
+    assert faculty_module.verify_password(
+        password, user["password_hash"]
+    ) is True
