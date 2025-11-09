@@ -177,4 +177,13 @@ elif choice == "Dashboard / Logout" or st.session_state.page == "dashboard":
         if st.button("Go to Login"):
             st.session_state.page = "login"
             st.rerun()
+# Utility for testing: get user role from DB
+def get_user_role(email):
+    conn = get_db_conn()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT role FROM users WHERE email=%s", (email,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row["role"] if row else None
 
