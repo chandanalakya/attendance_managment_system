@@ -111,7 +111,7 @@ def verify_password(pw, pw_hash):
 
 
 # -----------------------
-# Sidebar Navigation
+# Sidebar Navigation sideee
 # -----------------------
 menu = ["Login", "Register"]
 choice = st.sidebar.selectbox("Navigation", menu)
@@ -137,7 +137,7 @@ if choice == "Register":
             )
 
 
-# -----------------------------
+# ------------------------------------------------------------------
 # Login
 # ----------------------------------
 elif choice == "Login":
