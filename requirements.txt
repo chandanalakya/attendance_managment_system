@@ -1,8 +1,25 @@
+# Core Web & UI
+streamlit
+
+# Database
+mysql-connector-python
+python-dotenv
+
+# Security / Password hashing
+bcrypt
+
+# Data Handling
+pandas
+
+# Testing Framework
 pytest
 pytest-mock
 pytest-cov
-mysql-connector-python
-python-dotenv
-bcrypt
-pandas
-streamlit
+hypothesis
+anyio
+
+# Linting and Static Analysis
+flake8
+pylint
+bandit
+mypy
