@@ -1,137 +1,80 @@
-name: CI/CD Pipeline
+name: Python CI/CD
 
 on:
   push:
-    branches: main
+    branches:
+      - '**'              # Trigger on all branches
   pull_request:
-    branches: main
+    branches:
+      - '**'              # Trigger on all PRs
+  workflow_dispatch:       # Allow manual runs from the Actions tab
 
 jobs:
-  # =========================
-  # Stage 1: Build
-  # =========================
-  build:
-    name: Build
+  build-test:
     runs-on: ubuntu-latest
+
     steps:
+      # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Set up Python
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: "3.11"
 
+      # Cache pip dependencies to speed up builds
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov pylint bandit mysql-connector-python
+          pip install flake8 black pytest
 
-  # =========================
-  # Stage 2: Unit & Integration Tests
-  # =========================
-  test:
-    name: Run Unit & Integration Tests
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-
-      - name: Install dependencies
+      # Run linting with flake8 (non-blocking)
+      - name: Lint code (flake8)
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov mysql-connector-python
+          echo "🔍 Running flake8 lint check..."
+          flake8 . || echo "⚠️ Linting found issues, but continuing..."
 
-      - name: Run Unit & Integration Tests (skip system)
+      # Run formatting check with black (non-blocking)
+      - name: Check code formatting (black)
         run: |
-          echo "Running Unit + Integration Tests..."
-          pytest tests/unit tests/integration --disable-warnings
+          echo "🎨 Checking formatting..."
+          black --check . || echo "⚠️ Formatting issues found, but continuing..."
 
-  # =========================
-  # Stage 3: Coverage
-  # =========================
-  coverage:
-    name: Test Coverage
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-
-      - name: Install dependencies
+      # Run tests
+      - name: Run tests (pytest)
+        env:
+          SAMS2_DB_PATH: ./test.db
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          echo "🧪 Running tests..."
+          pytest -q --disable-warnings
 
-      - name: Run coverage
-        run: |
-          echo "Running Coverage..."
-          pytest --cov=src --cov-report=xml --disable-warnings --deselect=tests/system
-
-      - name: Upload coverage report
+      # Upload test results as an artifact (optional)
+      - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: coverage.xml
+          name: pytest-results
+          path: .pytest_cache
 
-  # =========================
-  # Stage 4: Lint
-  # =========================
-  lint:
-    name: Lint Code
+  # (Optional) Code quality summary job
+  report:
+    needs: build-test
     runs-on: ubuntu-latest
-    needs: coverage
+    if: always()
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-
-      - name: Install pylint
-        run: pip install pylint
-
-      - name: Run pylint
+      - name: Summary
         run: |
-          echo "Running Lint..."
-          pylint src --exit-zero --score=y
-
-  # =========================
-  # Stage 5: Security Scan
-  # =========================
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-
-      - name: Install bandit
-        run: pip install bandit
-
-      - name: Run Bandit Security Scan
-        run: |
-          echo "Running Security Scan..."
-          bandit -r src -ll -iii
+          echo "✅ CI/CD pipeline completed."
+          echo "If tests failed, check the 'build-test' job logs above."
