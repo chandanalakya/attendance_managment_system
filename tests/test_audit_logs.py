@@ -14,7 +14,7 @@ def _create_dummy_logs(count=3):
             action=f"action_{i}",
             ip_address=f"192.168.0.{i}",
             timestamp=None,
-            details=f"meta_{i}",   # updated
+            details=f"meta_{i}",  # updated
             immutable=1,
         )
         logs.append(log)
@@ -25,7 +25,9 @@ def test_logs_to_csv_contains_header_and_data(tmp_path):
     logs = _create_dummy_logs(2)
     csv_output = logs_to_csv(logs)
     lines = csv_output.splitlines()
-    assert lines[0].startswith("id,user_id,action,ip_address,timestamp,metadata,immutable")
+    assert lines[0].startswith(
+        "id,user_id,action,ip_address,timestamp,metadata,immutable"
+    )
     reader = csv.reader(io.StringIO(csv_output))
     rows = list(reader)
     assert len(rows) == 3

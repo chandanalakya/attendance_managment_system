@@ -7,7 +7,15 @@ from models.audit_log import AuditLog
 def logs_to_csv(logs: List[AuditLog]) -> str:
     output = StringIO()
     writer = csv.writer(output)
-    header = ["id", "user_id", "action", "ip_address", "timestamp", "metadata", "immutable"]
+    header = [
+        "id",
+        "user_id",
+        "action",
+        "ip_address",
+        "timestamp",
+        "metadata",
+        "immutable",
+    ]
     writer.writerow(header)
 
     for log in logs:
