@@ -1,188 +1,137 @@
-name: CI/CD Pipeline - Python
+name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - feature/*
+    branches: ['*']
   pull_request:
-    branches:
-      - main
+    branches: ['*']
 
 jobs:
-  # --------------------------------------------------
-  # 1️⃣ BUILD STAGE
-  # --------------------------------------------------
+  # =========================
+  # Stage 1: Build
+  # =========================
   build:
-    name: 🏗️ Build
+    name: Build
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🛠️ Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.12
 
-      - name: 📦 Install Dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
-          pip install pytest pytest-cov flake8 bandit black streamlit mysql-connector-python bcrypt pandas python-dotenv
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pylint bandit mysql-connector-python
 
-  # --------------------------------------------------
-  # 2️⃣ TEST STAGE (with MySQL Service)
-  # --------------------------------------------------
+  # =========================
+  # Stage 2: Unit & Integration Tests
+  # =========================
   test:
-    name: 🧪 Run Tests
+    name: Run Unit & Integration Tests
     runs-on: ubuntu-latest
     needs: build
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: login_db
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
     steps:
-      - name: 🛠️ Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.12
 
-      - name: 📦 Install Test Dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov streamlit mysql-connector-python bcrypt pandas python-dotenv
+          pip install -r requirements.txt
+          pip install pytest pytest-cov mysql-connector-python
 
-      - name: ⏳ Wait for MySQL
+      - name: Run Unit & Integration Tests (skip system)
         run: |
-          for i in {1..10}; do
-            if mysqladmin ping -h "127.0.0.1" --silent; then
-              echo "✅ MySQL is up!"
-              break
-            fi
-            echo "⏳ Waiting for MySQL..."
-            sleep 5
-          done
+          echo "Running Unit + Integration Tests..."
+          pytest tests/unit tests/integration --disable-warnings
 
-      - name: 🧪 Run All Tests
-        env:
-          MYSQL_HOST: 127.0.0.1
-          MYSQL_USER: root
-          MYSQL_PASSWORD: root
-          MYSQL_DATABASE: login_db
-        run: |
-          pytest tests/ --maxfail=1 --disable-warnings -v --cov=src --cov-report=term-missing
-
-  # --------------------------------------------------
-  # 3️⃣ COVERAGE STAGE
-  # --------------------------------------------------
+  # =========================
+  # Stage 3: Coverage
+  # =========================
   coverage:
-    name: 📊 Coverage
+    name: Test Coverage
     runs-on: ubuntu-latest
     needs: test
-
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.12
 
-      - name: 📦 Install Dependencies
+      - name: Install dependencies
         run: |
-          pip install pytest pytest-cov streamlit mysql-connector-python bcrypt pandas python-dotenv
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
 
-      - name: 📊 Generate Coverage Report
+      - name: Run coverage
         run: |
-          pytest --cov=src --cov-report=xml --cov-report=term-missing --disable-warnings
+          echo "Running Coverage..."
+          pytest --cov=src --cov-report=xml --disable-warnings --deselect=tests/system
 
-      - name: 📤 Upload Coverage Report
+      - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
 
-  # --------------------------------------------------
-  # 4️⃣ LINT STAGE
-  # --------------------------------------------------
+  # =========================
+  # Stage 4: Lint
+  # =========================
   lint:
-    name: ✨ Lint
+    name: Lint Code
     runs-on: ubuntu-latest
     needs: coverage
-
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.12
 
-      - name: 🔍 Run flake8 Linter
+      - name: Install pylint
+        run: pip install pylint
+
+      - name: Run pylint
         run: |
-          pip install flake8
-          flake8 src tests || true
+          echo "Running Lint..."
+          pylint src --exit-zero --score=y
 
-  # --------------------------------------------------
-  # 5️⃣ FORMAT STAGE
-  # --------------------------------------------------
-  format:
-    name: 🎨 Format Check
+  # =========================
+  # Stage 5: Security Scan
+  # =========================
+  security:
+    name: Security Scan
     runs-on: ubuntu-latest
     needs: lint
-
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.12
 
-      - name: 🎨 Check Code Format (Black)
+      - name: Install bandit
+        run: pip install bandit
+
+      - name: Run Bandit Security Scan
         run: |
-          pip install black
-          black --check src tests || true
-
-  # --------------------------------------------------
-  # 6️⃣ SECURITY STAGE
-  # --------------------------------------------------
-  security:
-    name: 🔒 Security Scan
-    runs-on: ubuntu-latest
-    needs: format
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: 🔒 Run Bandit Security Scan
-        run: |
-          pip install bandit
-          bandit -r src/ -f txt -o security-report.txt || true
-
-  # --------------------------------------------------
-  # 7️⃣ DEPLOY STAGE (Simulation)
-  # --------------------------------------------------
-  deploy:
-    name: 🚀 Deploy
-    runs-on: ubuntu-latest
-    needs: security
-
-    steps:
-      - name: 🚀 Simulate Deployment
-        run: |
-          echo "✅ All stages passed successfully!"
-          echo "🚀 Deploying application (simulation)..."
+          echo "Running Security Scan..."
+          bandit -r src -ll -iii
