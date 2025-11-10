@@ -2,29 +2,40 @@ name: Python CI/CD
 
 on:
   push:
-    branches:
-      - '**'              # Trigger on all branches
+    branches: ['**']
   pull_request:
-    branches:
-      - '**'              # Trigger on all PRs
-  workflow_dispatch:       # Allow manual runs from the Actions tab
+    branches: ['**']
+  workflow_dispatch:
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the code
+      # 🧾 Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up Python
+      # 💾 Step 2: Clean up disk space to prevent "no space left" errors
+      - name: Clean up disk space
+        run: |
+          echo "Before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo docker system prune -af || true
+          echo "After cleanup:"
+          df -h
+
+      # 🐍 Step 3: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.10"   # ✅ stable version compatible with all your libs
 
-      # Cache pip dependencies to speed up builds
+      # 📦 Step 4: Cache pip packages
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -33,48 +44,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # Install dependencies
+      # 📥 Step 5: Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 black pytest
 
-      # Run linting with flake8 (non-blocking)
-      - name: Lint code (flake8)
+      # 🔍 Step 6: Lint your code with flake8
+      - name: Lint (flake8)
         run: |
-          echo "🔍 Running flake8 lint check..."
-          flake8 . || echo "⚠️ Linting found issues, but continuing..."
+          echo "🔍 Running flake8..."
+          flake8 . || echo "⚠️ Lint warnings (non-blocking)"
 
-      # Run formatting check with black (non-blocking)
-      - name: Check code formatting (black)
+      # 🎨 Step 7: Check code formatting with black
+      - name: Format check (black)
         run: |
           echo "🎨 Checking formatting..."
-          black --check . || echo "⚠️ Formatting issues found, but continuing..."
+          black --check . || echo "⚠️ Formatting warnings (non-blocking)"
 
-      # Run tests
-      - name: Run tests (pytest)
+      # 🧪 Step 8: Run tests
+      - name: Run tests
         env:
+          PYTHONPATH: ${{ github.workspace }}/src   # ✅ Fix for "ModuleNotFoundError: src"
           SAMS2_DB_PATH: ./test.db
         run: |
           echo "🧪 Running tests..."
           pytest -q --disable-warnings
-
-      # Upload test results as an artifact (optional)
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-results
-          path: .pytest_cache
-
-  # (Optional) Code quality summary job
-  report:
-    needs: build-test
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Summary
-        run: |
-          echo "✅ CI/CD pipeline completed."
-          echo "If tests failed, check the 'build-test' job logs above."
