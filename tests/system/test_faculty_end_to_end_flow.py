@@ -1,4 +1,5 @@
 import importlib.util
+import pytest
 from unittest.mock import MagicMock
 
 # Load student_login module
