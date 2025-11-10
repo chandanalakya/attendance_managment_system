@@ -8,3 +8,4 @@ sqlite-utils
 bcrypt
 python-dotenv
 pandas
+pywin32==311; sys_platform == "win32"
