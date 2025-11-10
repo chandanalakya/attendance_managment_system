@@ -5,7 +5,7 @@ import mysql.connector
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="Attendance Dashboard", layout="wide")
 
-# ---------- DATABASE CONNECTION ----------
+# ---------- DATABASE CONNECTION -----------------------
 @st.cache_data
 def load_data():
     try:

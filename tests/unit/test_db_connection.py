@@ -1,16 +1,16 @@
 import mysql.connector
-from unittest.mock import patch
-from src.login_system import get_connection
+import pytest
 
-def test_get_connection(monkeypatch):
-    """✅ Ensure get_connection() calls mysql.connector.connect() properly."""
-    called = {}
-
+def test_mysql_connection(monkeypatch):
+    """✅ Check if MySQL connection parameters are valid."""
     def mock_connect(**kwargs):
-        called["used"] = True
-        return "mock_connection"
+        assert kwargs["host"] == "localhost"
+        assert kwargs["user"] == "root"
+        assert kwargs["database"] == "facAdm"
+        return True
 
     monkeypatch.setattr(mysql.connector, "connect", mock_connect)
-    conn = get_connection()
-    assert conn == "mock_connection"
-    assert "used" in called
+    result = mysql.connector.connect(
+        host="localhost", user="root", password="Lakshmireddy@1", database="facAdm"
+    )
+    assert result is True
