@@ -137,9 +137,9 @@ if choice == "Register":
             )
 
 
-# -----------------------
+# -----------------------------
 # Login
-# -----------------------
+# ----------------------------------
 elif choice == "Login":
     st.title("👨‍🏫 Faculty Login")
     if not st.session_state.user:
