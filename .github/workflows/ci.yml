@@ -1,27 +1,62 @@
-
 name: CI
 
 on:
   push:
+    branches:
+      - '**'          # Run on all branches when code is pushed
   pull_request:
+    branches:
+      - '**'          # Run on all branches when a PR is opened or updated
+  workflow_dispatch:   # Allows manual trigger from the Actions tab
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install deps
+
+      # Cache pip dependencies to speed up installs
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Install dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Lint (flake8)
+          pip install flake8 black pytest
+
+      # Linting step (flake8)
+      - name: Lint code (flake8)
         run: flake8 .
-      - name: Format check (black)
+
+      # Code formatting check (black)
+      - name: Check formatting (black)
         run: black --check .
+
+      # Run tests (pytest)
       - name: Run tests
         env:
           SAMS2_DB_PATH: ./test.db
         run: pytest -q
+
+      # (Optional) Upload test results or coverage report
+      # - name: Upload coverage report
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: coverage-report
+      #     path: coverage.xml
