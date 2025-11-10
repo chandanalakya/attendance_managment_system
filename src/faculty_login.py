@@ -24,7 +24,7 @@ st.set_page_config(page_title="SAMS - Faculty Portal", layout="wide")
 
 
 # -----------------------
-# Session initialization
+# Session initializationnnnnnnnn
 # -----------------------
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -111,7 +111,7 @@ def verify_password(pw, pw_hash):
 
 
 # -----------------------
-# Sidebar Navigation
+# Sidebar Navigation sideee
 # -----------------------
 menu = ["Login", "Register"]
 choice = st.sidebar.selectbox("Navigation", menu)
@@ -137,9 +137,9 @@ if choice == "Register":
             )
 
 
-# -----------------------
+# ------------------------------------------------------------------
 # Login
-# -----------------------
+# ----------------------------------
 elif choice == "Login":
     st.title("👨‍🏫 Faculty Login")
     if not st.session_state.user:

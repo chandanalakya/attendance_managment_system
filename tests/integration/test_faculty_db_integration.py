@@ -1,7 +1,6 @@
 import importlib.util
 from unittest.mock import MagicMock
 
-
 # Load the faculty_login module dynamically
 spec = importlib.util.spec_from_file_location(
     "faculty_login", "src/faculty_login.py"
