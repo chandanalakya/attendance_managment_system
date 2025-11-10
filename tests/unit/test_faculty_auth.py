@@ -1,5 +1,5 @@
 import importlib.util
-
+from unittest.mock import MagicMock
 
 # Dynamically load faculty_login.py from src/
 spec = importlib.util.spec_from_file_location(
@@ -10,14 +10,14 @@ spec.loader.exec_module(faculty_module)
 
 
 def test_faculty_login_success(monkeypatch):
-    # Mock user from DB
+    # Mock database connection
+    monkeypatch.setattr(faculty_module, "get_db_conn", lambda: MagicMock())
+
     mock_user = {
         "email": "faculty@college.com",
         "password_hash": "$2b$12$abcdefg1234567890",
         "is_approved": True,
     }
-
-    # Mock DB and password check
     monkeypatch.setattr(
         faculty_module, "find_user_by_email", lambda email: mock_user
     )
@@ -27,18 +27,17 @@ def test_faculty_login_success(monkeypatch):
 
     user = faculty_module.find_user_by_email("faculty@college.com")
     assert user["is_approved"] is True
-    assert faculty_module.verify_password(
-        "Faculty@123", user["password_hash"]
-    ) is True
+    assert faculty_module.verify_password("Faculty@123", user["password_hash"]) is True
 
 
 def test_faculty_login_fail(monkeypatch):
+    monkeypatch.setattr(faculty_module, "get_db_conn", lambda: MagicMock())
+
     mock_user = {
         "email": "faculty@college.com",
         "password_hash": "$2b$12$abcdefg1234567890",
         "is_approved": True,
     }
-
     monkeypatch.setattr(
         faculty_module, "find_user_by_email", lambda email: mock_user
     )
@@ -47,6 +46,4 @@ def test_faculty_login_fail(monkeypatch):
     )
 
     user = faculty_module.find_user_by_email("faculty@college.com")
-    assert faculty_module.verify_password(
-        "WrongPass", user["password_hash"]
-    ) is False
+    assert faculty_module.verify_password("WrongPass", user["password_hash"]) is False
