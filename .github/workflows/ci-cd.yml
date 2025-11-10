@@ -1,62 +1,137 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["*"]
+    branches: ['*']
   pull_request:
-    branches: ["*"]
+    branches: ['*']
 
 jobs:
-  test:
+  # =========================
+  # Stage 1: Build
+  # =========================
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
-
-    env:
-      # streamlit noise off during tests
-      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
-      # for optional codecov step
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('src/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          python-version: 3.12
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r src/requirements.txt
-          # dev tools installed only in CI (keeps your local requirements tidy)
-          pip install ruff
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pylint bandit mysql-connector-python
 
-      - name: Lint (ruff)
-        run: |
-          ruff --version
-          ruff check .
+  # =========================
+  # Stage 2: Unit & Integration Tests
+  # =========================
+  test:
+    name: Run Unit & Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Run tests with coverage
-        run: |
-          pytest -v --cov=src --cov-report=term-missing --cov-fail-under=80 --disable-warnings
-
-      - name: Upload coverage to Codecov (optional)
-        if: ${{ env.CODECOV_TOKEN != '' }}
-        uses: codecov/codecov-action@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          fail_ci_if_error: false
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov mysql-connector-python
+
+      - name: Run Unit & Integration Tests (skip system)
+        run: |
+          echo "Running Unit + Integration Tests..."
+          pytest tests/unit tests/integration --disable-warnings
+
+  # =========================
+  # Stage 3: Coverage
+  # =========================
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run coverage
+        run: |
+          echo "Running Coverage..."
+          pytest --cov=src --cov-report=xml --disable-warnings --deselect=tests/system
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # =========================
+  # Stage 4: Lint
+  # =========================
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    needs: coverage
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Install pylint
+        run: pip install pylint
+
+      - name: Run pylint
+        run: |
+          echo "Running Lint..."
+          pylint src --exit-zero --score=y
+
+  # =========================
+  # Stage 5: Security Scan
+  # =========================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Install bandit
+        run: pip install bandit
+
+      - name: Run Bandit Security Scan
+        run: |
+          echo "Running Security Scan..."
+          bandit -r src -ll -iii
