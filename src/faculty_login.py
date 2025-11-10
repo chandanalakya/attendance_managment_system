@@ -24,7 +24,7 @@ st.set_page_config(page_title="SAMS - Faculty Portal", layout="wide")
 
 
 # -----------------------
-# Session initialization
+# Session initializationnnnnnnnn
 # -----------------------
 if "user" not in st.session_state:
     st.session_state.user = None
