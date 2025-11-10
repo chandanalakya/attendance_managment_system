@@ -14,7 +14,7 @@ class AuditLog(Base):
     ip_address = Column(String(45), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    # renamed attribute, but DB column name stays "metadata"
+    # Renamed Python attribute, but database column still named "metadata"
     details = Column("metadata", Text, nullable=True)
 
     immutable = Column(Integer, default=1, nullable=False)

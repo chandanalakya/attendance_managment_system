@@ -1,21 +1,26 @@
+# src/utils/db.py
 
 import os
-import sqlite3
-from contextlib import contextmanager
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, scoped_session
 
-DB_PATH = os.getenv("SAMS2_DB_PATH", os.path.join(os.path.dirname(__file__), "..", "sams2.db"))
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
-def init_db(schema_path: str):
-    with sqlite3.connect(DB_PATH) as conn, open(schema_path, "r", encoding="utf-8") as f:
-        conn.executescript(f.read())
-        conn.commit()
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
-@contextmanager
-def get_conn(db_path: str = None):
-    path = db_path or DB_PATH
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
+SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
+
+
+def get_db():
+    """
+    Provides a transactional scope around a series of operations.
+    Usage:
+        with get_db() as db:
+            # do stuff
+            ...
+    """
+    db = SessionLocal()
     try:
-        yield conn
+        yield db
     finally:
-        conn.close()
+        db.close()
