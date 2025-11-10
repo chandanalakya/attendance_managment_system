@@ -11,8 +11,6 @@ def fresh_db(tmp_path):
     yield
 
 @pytest.fixture
-
-
 def seed_basic():
     student_id = create_user("Stu", "stu@example.com", "pass", "student")
     faculty_id = create_user("Fac", "fac@example.com", "pass", "faculty")
