@@ -8,7 +8,7 @@ on:
    workflow_dispatch:
 jobs:
   # =========================
-  # Stage 1: Build
+  # Stage 1: Build stage
   # =========================
   build:
     name: Build
