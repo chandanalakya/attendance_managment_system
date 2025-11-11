@@ -27,7 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Ensure core libs are always available
+          # Core packages for CI/CD
           pip install pytest pytest-cov pylint bandit sqlalchemy sqlparse mysql-connector-python streamlit pandas
 
   # =========================
@@ -55,7 +55,12 @@ jobs:
       - name: Run Unit & Integration Tests (skip system)
         run: |
           echo "Running Unit + Integration Tests..."
-          pytest tests/unit tests/integration --disable-warnings
+          # Run unit/integration tests if they exist, otherwise fallback to tests/
+          if [ -d "tests/unit" ] || [ -d "tests/integration" ]; then
+            pytest tests/unit tests/integration --disable-warnings || pytest tests --disable-warnings
+          else
+            pytest tests --disable-warnings
+          fi
 
   # =========================
   # Stage 3: Coverage
@@ -82,7 +87,7 @@ jobs:
       - name: Run coverage
         run: |
           echo "Running Coverage..."
-          pytest --cov=src --cov-report=xml --disable-warnings --deselect=tests/system
+          pytest --cov=src --cov-report=xml --disable-warnings --deselect=tests/system || pytest --cov=src --cov-report=xml --disable-warnings
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -130,8 +135,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install bandit
-        run: pip install bandit sqlalchemy sqlparse
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit sqlalchemy sqlparse
 
       - name: Run Bandit Security Scan
         run: |
