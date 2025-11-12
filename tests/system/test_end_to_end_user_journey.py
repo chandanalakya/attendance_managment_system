@@ -1,13 +1,15 @@
 import pytest
-import src.student_login as S
+import os
 import mysql.connector
+import src.student_login as S
+from src.utils.db import SCHEMA, init_db
 
 @pytest.mark.system
 def test_end_to_end_student_registration_login_flow():
     """
     SYSTEM TEST: Complete Student Journey
     1. Register a student
-    2. Admin approves the student manually
+    2. Admin approves the student
     3. Student logs in
     4. Student creates profile
     5. Fetch student profile and verify
@@ -23,9 +25,15 @@ def test_end_to_end_student_registration_login_flow():
     sem = "5"
     sec = "A"
 
-    # ---------- CLEANUP PREVIOUS RUN ----------
+    # ---------- INIT DB ----------
+    init_db(SCHEMA)
+
+    # ---------- CONNECT ----------
     conn = S.get_db_conn()
-    cur = conn.cursor()
+    assert conn is not None, "Database connection failed"
+    cur = conn.cursor(dictionary=True)
+
+    # ---------- CLEANUP PREVIOUS RUN ----------
     cur.execute("DELETE FROM student_details WHERE user_id IN (SELECT id FROM users WHERE email=%s)", (email,))
     cur.execute("DELETE FROM users WHERE email=%s", (email,))
     conn.commit()
@@ -35,7 +43,7 @@ def test_end_to_end_student_registration_login_flow():
 
     user = S.find_user_by_email(email)
     assert user is not None
-    assert user["is_approved"] == 0          # Should not be approved yet
+    assert user["is_approved"] == 0  # Should not be approved yet
 
     # ---------- 2. ADMIN APPROVAL ----------
     cur.execute("UPDATE users SET is_approved=1 WHERE email=%s", (email,))
@@ -48,13 +56,10 @@ def test_end_to_end_student_registration_login_flow():
     assert S.verify_password(password, user["password_hash"]) is True
 
     # ---------- 4. STUDENT PROFILE SAVE ----------
-    S.save_student_details(
-        user["id"], full_name, roll_no, dept, course, sem, sec
-    )
+    S.save_student_details(user["id"], full_name, roll_no, dept, course, sem, sec)
 
     # ---------- 5. FETCH PROFILE ----------
     details = S.get_student_details(user["id"])
-
     assert details is not None
     assert details["full_name"] == full_name
     assert details["roll_no"] == roll_no

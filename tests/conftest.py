@@ -1,10 +1,19 @@
+import sys
 import os
 import pytest
 from src.app import init_db, get_conn, create_user
 
+# --------------------------
+# Make src importable in tests
+# --------------------------
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+
+# --------------------------
+# Fixtures
+# --------------------------
 @pytest.fixture(autouse=True)
 def fresh_db(tmp_path):
-    """Fresh database for every test (isolated)."""
+    """Provide a fresh database for every test."""
     test_db = tmp_path / "test.db"
     os.environ["ATTENDANCE_DB"] = str(test_db)
     init_db()
@@ -12,12 +21,12 @@ def fresh_db(tmp_path):
 
 @pytest.fixture
 def seed_basic():
+    """Seed a basic set of users, course, enrollment, and attendance for tests."""
     student_id = create_user("Stu", "stu@example.com", "pass", "student")
     faculty_id = create_user("Fac", "fac@example.com", "pass", "faculty")
     admin_id   = create_user("Adm", "adm@example.com", "pass", "admin")
 
     with get_conn() as conn:
-
         # Insert course only if not exists
         row = conn.execute("SELECT id FROM courses WHERE code='CS101'").fetchone()
         if row:
@@ -48,7 +57,7 @@ def seed_basic():
                 (student_id, course_id, "2025-11-07T09:00:00+00:00", "absent")
             )
 
-        # ✅ IMPORTANT: clear old correction requests so tests start clean
+        # Clear old correction requests to start fresh
         conn.execute("DELETE FROM attendance_corrections")
 
     return {
