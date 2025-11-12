@@ -55,7 +55,7 @@ This repository contains the source code and documentation for the Student atten
    # Add your run commands here
    ```
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 PESU_EC_CSE_C_P18_Student_attendance_management_system_Visionsoft/
@@ -91,7 +91,7 @@ Follow conventional commit format:
 4. Request review from team members
 5. Merge after approval
 
-## 📚 Documentation
+##  Documentation
 
 - [API Documentation](docs/api.md)
 - [User Guide](docs/user-guide.md)
@@ -136,7 +136,7 @@ pytest -q
 See `.github/workflows/ci.yml` — runs lint + tests on every push/PR.
 
 
-## 📄 License
+##  License
 
 This project is developed for educational purposes as part of the PES University UE23CS341A curriculum.
 
