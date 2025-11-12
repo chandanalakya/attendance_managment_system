@@ -6,7 +6,7 @@ from src.utils.db import init_db, get_conn
 import pytest
 from src.utils.db import init_db, get_conn
 from src.models.attendance import add_attendance, edit_attendance, delete_attendance, attempt_modify_audit_logs
-#schema path
+
 SCHEMA = "src/schema.sql"
 
 def seed(conn):
