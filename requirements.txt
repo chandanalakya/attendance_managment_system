@@ -1,10 +1,19 @@
-
+# Core dependencies
 streamlit==1.39.0
 pandas==2.2.2
+sqlalchemy>=2.0.0
+sqlparse
+mysql-connector-python
+
+# Testing and QA
 pytest==8.3.2
 flake8==7.1.1
 black==24.8.0
+pylint==3.3.1
+
+# Security
+bandit==1.7.9
+
+# Reporting and PDF generation
 reportlab==4.2.2
 fpdf2==2.7.9
-sqlalchemy>=2.0.0
-sqlparse
