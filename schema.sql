@@ -1,74 +1,86 @@
-PRAGMA foreign_keys = ON;
+-- ========================
+-- MySQL-compatible schema
+-- ========================
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    role            TEXT NOT NULL CHECK(role IN ('student','faculty','admin')),
-    name            TEXT NOT NULL,
-    email           TEXT NOT NULL UNIQUE,
-    password_hash   TEXT NOT NULL
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    role            ENUM('student','faculty','admin') NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    email           VARCHAR(255) NOT NULL UNIQUE,
+    password_hash   VARCHAR(255) NOT NULL,
+    is_approved     TINYINT(1) DEFAULT 0
 );
 
 -- Courses (minimal)
 CREATE TABLE IF NOT EXISTS courses (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    code        TEXT NOT NULL UNIQUE,
-    name        TEXT NOT NULL
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    code        VARCHAR(50) NOT NULL UNIQUE,
+    name        VARCHAR(255) NOT NULL
 );
 
 -- Enrollments (student-course relation)
 CREATE TABLE IF NOT EXISTS enrollments (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    course_id   INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    UNIQUE(student_id, course_id)
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    student_id  INT NOT NULL,
+    course_id   INT NOT NULL,
+    UNIQUE(student_id, course_id),
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
 
--- Attendance records (one per (student, course, session_datetime))
+-- Attendance records
 CREATE TABLE IF NOT EXISTS attendance (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    course_id       INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    session_dt      TEXT NOT NULL, -- ISO 8601 (UTC or local but consistent)
-    status          TEXT NOT NULL CHECK(status IN ('present','absent')),
-    UNIQUE(student_id, course_id, session_dt)
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    student_id  INT NOT NULL,
+    course_id   INT NOT NULL,
+    session_dt  DATETIME NOT NULL,
+    status      ENUM('present','absent') NOT NULL,
+    UNIQUE(student_id, course_id, session_dt),
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
 
--- Correction requests (immutable by students after creation)
+-- Correction requests
 CREATE TABLE IF NOT EXISTS attendance_corrections (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    course_id           INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    session_dt          TEXT NOT NULL,
-    requested_status    TEXT NOT NULL CHECK(requested_status IN ('present','absent')),
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    student_id          INT NOT NULL,
+    course_id           INT NOT NULL,
+    session_dt          DATETIME NOT NULL,
+    requested_status    ENUM('present','absent') NOT NULL,
     reason              TEXT NOT NULL,
-    status              TEXT NOT NULL CHECK(status IN ('pending','approved','rejected')),
-    faculty_reviewer_id INTEGER REFERENCES users(id),
-    faculty_comment     TEXT,         -- optional for approve, mandatory for reject
-    admin_reviewer_id   INTEGER REFERENCES users(id),
+    status              ENUM('pending','approved','rejected') NOT NULL,
+    faculty_reviewer_id INT,
+    faculty_comment     TEXT,
+    admin_reviewer_id   INT,
     admin_comment       TEXT,
-    created_at          TEXT NOT NULL,
-    updated_at          TEXT NOT NULL,
-    -- no duplicate pending or closed requests for same key
-    UNIQUE(student_id, course_id, session_dt)
+    created_at          DATETIME NOT NULL,
+    updated_at          DATETIME NOT NULL,
+    UNIQUE(student_id, course_id, session_dt),
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (faculty_reviewer_id) REFERENCES users(id),
+    FOREIGN KEY (admin_reviewer_id) REFERENCES users(id)
 );
 
--- Audit trail for any approval/reject/override
+-- Audit trail
 CREATE TABLE IF NOT EXISTS audit_log (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    actor_id    INTEGER NOT NULL REFERENCES users(id),
-    action      TEXT NOT NULL, -- 'request_submitted','faculty_approved','faculty_rejected','admin_override'
-    entity      TEXT NOT NULL, -- 'attendance_correction'
-    entity_id   INTEGER NOT NULL,
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    actor_id    INT NOT NULL,
+    action      VARCHAR(50) NOT NULL,
+    entity      VARCHAR(50) NOT NULL,
+    entity_id   INT NOT NULL,
     details     TEXT,
-    created_at  TEXT NOT NULL
+    created_at  DATETIME NOT NULL,
+    FOREIGN KEY (actor_id) REFERENCES users(id)
 );
 
--- Dumb notifications (email/in-app simulated)
+-- Notifications
 CREATE TABLE IF NOT EXISTS notifications (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id     INTEGER NOT NULL REFERENCES users(id),
-    channel     TEXT NOT NULL CHECK(channel IN ('email','in-app')),
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT NOT NULL,
+    channel     ENUM('email','in-app') NOT NULL,
     message     TEXT NOT NULL,
-    created_at  TEXT NOT NULL
+    created_at  DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
