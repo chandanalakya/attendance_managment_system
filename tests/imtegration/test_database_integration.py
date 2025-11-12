@@ -1,51 +1,28 @@
 import pytest
-import os
-from src.utils.db import init_db, get_conn
-from src import student_login as S  # adjust if your module name is different
+from src import student_login as S
+from src.utils.db import get_conn
 
 @pytest.mark.integration
-def test_user_insert_and_fetch(tmp_path):
-    # -------------------------------
-    # Create a fresh temporary database
-    # -------------------------------
-    test_db = tmp_path / "test.db"
-    os.environ["ATTENDANCE_DB"] = str(test_db)
-
-    # Initialize DB schema
-    init_db()
-
+def test_user_insert_and_fetch():
     email = "integration_test@example.com"
     password = "Integration@123"
 
-    # -------------------------------
-    # Connect to DB
-    # -------------------------------
-    conn = get_conn()
-    assert conn is not None, "Failed to get database connection"
-    cur = conn.cursor()
+    # ✅ Use context manager for connection
+    with S.get_db_conn() as conn:
+        cur = conn.cursor()
 
-    # -------------------------------
-    # Cleanup any previous record
-    # -------------------------------
-    cur.execute("DELETE FROM users WHERE email=?", (email,))
-    conn.commit()
+        # Cleanup any previous record
+        cur.execute("DELETE FROM users WHERE email=%s", (email,))
+        conn.commit()
 
-    # -------------------------------
-    # Insert user
-    # -------------------------------
-    S.create_user(email, password)
+        # Insert user
+        S.create_user(email, password)
 
-    # -------------------------------
-    # Fetch user and validate
-    # -------------------------------
-    user = S.find_user_by_email(email)
-    assert user is not None, "User not found in database"
-    assert user["email"] == email
+        # Fetch user
+        user = S.find_user_by_email(email)
+        assert user is not None
+        assert user["email"] == email
 
-    # -------------------------------
-    # Cleanup after test
-    # -------------------------------
-    cur.execute("DELETE FROM users WHERE email=?", (email,))
-    conn.commit()
-    cur.close()
-    conn.close()
+        # Cleanup
+        cur.execute("DELETE FROM users WHERE email=%s", (email,))
+        conn.commit()
