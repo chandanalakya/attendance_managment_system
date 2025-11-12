@@ -4,6 +4,7 @@ pandas==2.2.2
 sqlalchemy>=2.0.0
 sqlparse
 mysql-connector-python
+python-dotenv
 
 # Testing and QA
 pytest==8.3.2
