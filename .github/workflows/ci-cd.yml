@@ -45,17 +45,7 @@ jobs:
         with:
           python-version: 3.12
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          # Explicitly include dependencies used in tests
-          pip install pytest pytest-cov mysql-connector-python streamlit pandas
 
-      - name: Run Unit & Integration Tests (skip system)
-        run: |
-          echo "Running Unit + Integration Tests..."
-          pytest tests/unit tests/integration --disable-warnings
 
   # =========================
   # Stage 3: Coverage
