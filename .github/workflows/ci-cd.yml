@@ -30,8 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt || pip install -r requirements.txt
-          # Core packages needed across all stages
-          pip install pytest pytest-cov pylint bandit sqlalchemy sqlparse mysql-connector-python streamlit pandas
+          pip install pytest pytest-cov pylint bandit sqlalchemy sqlparse mysql-connector-python streamlit pandas bcrypt python-dotenv
 
   # =========================
   # Stage 2: Unit & Integration Tests
@@ -56,12 +55,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt || pip install -r requirements.txt
-          pip install pytest pytest-cov sqlalchemy sqlparse mysql-connector-python streamlit pandas
+          pip install pytest pytest-cov sqlalchemy sqlparse mysql-connector-python streamlit pandas bcrypt python-dotenv
 
       - name: Run Unit & Integration Tests
         run: |
           echo "Running Unit + Integration Tests..."
-          pytest tests --disable-warnings
+          export PYTHONPATH=$PYTHONPATH:$(pwd)   # <-- critical for src package
+          pytest
 
   # =========================
   # Stage 3: Coverage
@@ -91,6 +91,7 @@ jobs:
       - name: Run coverage
         run: |
           echo "Running Coverage..."
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
           pytest --cov=src --cov-report=xml --cov-fail-under=80 --disable-warnings
 
       - name: Upload coverage report

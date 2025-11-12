@@ -1,5 +1,6 @@
 import sqlite3
 from .audit_log import log_action, log_security_event
+from src.models.audit_log import log_action, log_security_event
 
 
 def add_attendance(
