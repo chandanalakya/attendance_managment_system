@@ -5,9 +5,11 @@ sqlalchemy>=2.0.0
 sqlparse
 mysql-connector-python
 python-dotenv
+bcrypt
 
 # Testing and QA
 pytest==8.3.2
+pytest-cov
 flake8==7.1.1
 black==24.8.0
 pylint==3.3.1
@@ -18,3 +20,5 @@ bandit==1.7.9
 # Reporting and PDF generation
 reportlab==4.2.2
 fpdf2==2.7.9
+matplotlib==3.10.3
+seaborn==0.12.3
