@@ -21,4 +21,4 @@ bandit==1.7.9
 reportlab==4.2.2
 fpdf2==2.7.9
 matplotlib==3.10.3
-seaborn==0.12.3
+seaborn
