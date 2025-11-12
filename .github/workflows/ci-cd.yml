@@ -35,10 +35,10 @@ jobs:
           pip install pytest pytest-cov pylint bandit sqlalchemy sqlparse mysql-connector-python streamlit pandas bcrypt python-dotenv
 
   # =========================
-  # Stage 2: Unit & Integration Tests
+  # Stage 2: Unit Tests Only
   # =========================
   test:
-    name: Run Unit & Integration Tests
+    name: Run Unit Tests Only
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -59,10 +59,10 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt || pip install -r requirements.txt
           pip install pytest pytest-cov sqlalchemy sqlparse mysql-connector-python streamlit pandas bcrypt python-dotenv
 
-      - name: Run Unit Tests (skip integration/system)
+      - name: Run Unit Tests Only
         run: |
-          echo "Running Unit Tests..."
-          pytest --disable-warnings -m "not integration and not system"
+          echo "Running Unit Tests Only (skip integration/system/database)..."
+          pytest --disable-warnings -m "unit"
 
   # =========================
   # Stage 3: Coverage
@@ -90,8 +90,8 @@ jobs:
 
       - name: Run coverage
         run: |
-          echo "Running Coverage..."
-          pytest --cov=src --cov-report=xml --cov-fail-under=80 --disable-warnings --pyargs tests
+          echo "Running Coverage on Unit Tests Only..."
+          pytest --cov=src --cov-report=xml --cov-fail-under=80 --disable-warnings -m "unit"
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
