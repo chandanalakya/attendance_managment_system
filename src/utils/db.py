@@ -1,25 +1,34 @@
 import os
-import sqlite3
+import mysql.connector
 from contextlib import contextmanager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
+from dotenv import load_dotenv
 
-try:
-    import sqlparse
-except ImportError:
-    sqlparse = None
-
+load_dotenv()
 
 # -------------------------------------------------------------------
 # ✅ DATABASE CONNECTION SETUP
 # -------------------------------------------------------------------
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
-DB_PATH = DATABASE_URL.replace("sqlite:///", "")
+# MySQL Configuration
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', 'Rohan@200525'),
+    'database': os.getenv('DB_NAME', 'sams2'),
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'charset': 'utf8mb4',
+    'autocommit': True
+}
+
+DATABASE_URL = f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}?charset=utf8mb4"
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    pool_pre_ping=True,
+    pool_recycle=300,
+    echo=False
 )
 
 SessionLocal = scoped_session(
@@ -36,64 +45,84 @@ def get_db():
         db.close()
 
 
-@contextmanager
-def get_conn(raw=False):
+def test_connection():
     """
-    Provide a context-managed DB connection.
-
-    If raw=True → returns a raw sqlite3 connection (supports executescript)
-    Else → returns SQLAlchemy connection.
+    Test MySQL database connection.
+    Returns (success: bool, message: str)
     """
-    if raw or "sqlite" in DATABASE_URL:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-    else:
-        conn = engine.connect()
-
     try:
-        yield conn
-    finally:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        cursor.close()
         conn.close()
+        return True, "Database connection successful"
+    except mysql.connector.Error as e:
+        return False, f"Database connection failed: {e}"
+    except Exception as e:
+        return False, f"Unexpected error: {e}"
+
+@contextmanager
+def get_conn():
+    """
+    Provide a context-managed MySQL connection.
+    """
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        yield conn
+    except mysql.connector.Error as e:
+        raise ConnectionError(f"Database connection failed: {e}")
+    finally:
+        if 'conn' in locals() and conn.is_connected():
+            conn.close()
 
 
-# -------------------------------------------------------------------
-# ✅ FALLBACK SCHEMA (for init_db if file not found)
-# -------------------------------------------------------------------
-SCHEMA = """
-PRAGMA foreign_keys = ON;
-
+def init_db(schema_file=None):
+    """
+    Initialize the MySQL database.
+    """
+    if schema_file and os.path.exists(schema_file):
+        with open(schema_file, "r", encoding="utf-8") as f:
+            schema_sql = f.read()
+    elif os.path.exists("database/sams2_complete.sql"):
+        with open("database/sams2_complete.sql", "r", encoding="utf-8") as f:
+            schema_sql = f.read()
+    else:
+        # Default MySQL schema
+        schema_sql = """
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    role TEXT NOT NULL DEFAULT 'user'
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    role VARCHAR(50) NOT NULL DEFAULT 'user'
 );
 
 CREATE TABLE IF NOT EXISTS courses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS students (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    full_name TEXT NOT NULL,
-    roll_no TEXT NOT NULL UNIQUE
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    roll_no VARCHAR(50) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS enrollments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id INTEGER NOT NULL,
-    course_id INTEGER NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    course_id INT NOT NULL,
     FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    course_id INTEGER NOT NULL,
-    student_id INTEGER NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('PRESENT','ABSENT','LATE','EXCUSED')),
-    taken_at DATETIME NOT NULL DEFAULT (datetime('now')),
-    taken_by_user_id INTEGER NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    course_id INT NOT NULL,
+    student_id INT NOT NULL,
+    status ENUM('PRESENT','ABSENT','LATE','EXCUSED') NOT NULL,
+    taken_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    taken_by_user_id INT,
     notes TEXT,
     FOREIGN KEY(course_id) REFERENCES courses(id) ON DELETE CASCADE,
     FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
@@ -101,79 +130,40 @@ CREATE TABLE IF NOT EXISTS attendance (
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    action_type TEXT NOT NULL CHECK (action_type IN ('ADD','EDIT','DELETE','LOG_MOD_ATTEMPT')),
-    attendance_id INTEGER,
-    user_id INTEGER NOT NULL,
-    ip_address TEXT,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    action_type ENUM('ADD','EDIT','DELETE','LOG_MOD_ATTEMPT') NOT NULL,
+    attendance_id INT,
+    user_id INT,
+    ip_address VARCHAR(45),
     details TEXT,
-    created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(attendance_id) REFERENCES attendance(id) ON DELETE SET NULL,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS audit_security_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_type TEXT NOT NULL,
-    user_id INTEGER,
-    ip_address TEXT,
-    target_table TEXT,
-    operation TEXT,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    user_id INT,
+    ip_address VARCHAR(45),
+    target_table VARCHAR(100),
+    operation VARCHAR(50),
     details TEXT,
-    created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
 );
-
-CREATE TRIGGER IF NOT EXISTS trg_audit_logs_prevent_update
-BEFORE UPDATE ON audit_logs
-BEGIN
-    SELECT RAISE(ABORT, 'audit_logs are immutable');
-END;
-
-CREATE TRIGGER IF NOT EXISTS trg_audit_logs_prevent_delete
-BEFORE DELETE ON audit_logs
-BEGIN
-    SELECT RAISE(ABORT, 'audit_logs are immutable');
-END;
 """
-import time
 
-import time
-import gc
-import sqlite3
-
-def init_db(schema=SCHEMA):
-    """
-    Initialize the database.
-    - Reads from inline SQL or src/schema.sql file.
-    - Fully resets DB file safely (Windows lock–proof).
-    """
-    if os.path.exists(schema):
-        with open(schema, "r", encoding="utf-8") as f:
-            schema_sql = f.read()
-    elif os.path.exists("src/schema.sql"):
-        with open("src/schema.sql", "r", encoding="utf-8") as f:
-            schema_sql = f.read()
-    else:
-        schema_sql = schema
-
-    # ✅ Fully dispose of SQLAlchemy engine + garbage collect to close file handles
     try:
-        engine.dispose()
-        gc.collect()
-        time.sleep(0.2)
-        if os.path.exists(DB_PATH):
-            for _ in range(5):
-                try:
-                    os.remove(DB_PATH)
-                    break
-                except PermissionError:
-                    time.sleep(0.3)
+        with get_conn() as conn:
+            cursor = conn.cursor()
+            # Execute each statement separately
+            statements = [stmt.strip() for stmt in schema_sql.split(';') if stmt.strip()]
+            for statement in statements:
+                cursor.execute(statement)
+            conn.commit()
+            cursor.close()
+        print("MySQL database initialized successfully")
     except Exception as e:
-        print(f"⚠️ Cleanup failed: {e}")
-
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.executescript(schema_sql)
-        conn.commit()
-
-    print(f"✅ Database initialized successfully from {schema if os.path.exists(schema) else 'inline SCHEMA'}")
+        print(f"Database initialization failed: {e}")
+        raise

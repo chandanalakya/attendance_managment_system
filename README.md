@@ -1,148 +1,105 @@
-# Student attendance management system
+# SAMS2 - Student Attendance Management System
 
 **Project ID:** P18  
 **Course:** UE23CS341A  
-**Academic Year:** 2025  
-**Semester:** 5th Sem  
-**Campus:** EC  
-**Branch:** CSE  
-**Section:** C  
 **Team:** Visionsoft
 
-## 📋 Project Description
-
-An app like the app we have at PESU
-
-This repository contains the source code and documentation for the Student attendance management system project, developed as part of the UE23CS341A course at PES University.
-
-## 🧑‍💻 Development Team (Visionsoft)
-
-- [@PES2UG23CS143](https://github.com/PES2UG23CS143) - Scrum Master
-- [@PES2UG23CS165EC](https://github.com/PES2UG23CS165EC) - Developer Team
-- [@PES2UG23CS160](https://github.com/PES2UG23CS160) - Developer Team
-- [@PES2UG23-CS157](https://github.com/PES2UG23-CS157) - Developer Team
-
-## 👨‍🏫 Teaching Assistant
-
-- [@nikitha-0704](https://github.com/nikitha-0704)
-- [@samwilson129](https://github.com/samwilson129)
-- [@harshamogra](https://github.com/harshamogra)
-
-## 👨‍⚖️ Faculty Supervisor
-
-- [@sudeeparoydey](https://github.com/sudeeparoydey)
-
-
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-- [List your prerequisites here]
+- Python 3.11+
+- MySQL 8.0+
 
-### Installation
-1. Clone the repository
-   ```bash
-   git clone https://github.com/pestechnology/PESU_EC_CSE_C_P18_Student_attendance_management_system_Visionsoft.git
-   cd PESU_EC_CSE_C_P18_Student_attendance_management_system_Visionsoft
-   ```
+### Setup
+```bash
+# Install dependencies
+make install
 
-2. Install dependencies
-   ```bash
-   # Add your installation commands here
-   ```
+# Setup database
+mysql -u root -p -e "CREATE DATABASE sams2;"
 
-3. Run the application
-   ```bash
-   # Add your run commands here
-   ```
+# Configure environment
+cp .env.example .env
+# Edit .env with your MySQL credentials
 
-##  Project Structure
+# Initialize database
+make setup
 
-```
-PESU_EC_CSE_C_P18_Student_attendance_management_system_Visionsoft/
-├── src/                 # Source code
-├── docs/               # Documentation
-├── tests/              # Test files
-├── .github/            # GitHub workflows and templates
-├── README.md          # This file
-└── ...
+# Run application
+make run
 ```
 
-## 🛠️ Development Guidelines
+## 🎯 Features
 
-### Branching Strategy
-- `main`: Production-ready code
-- `develop`: Development branch
-- `feature/*`: Feature branches
-- `bugfix/*`: Bug fix branches
+### Student Dashboard
+- Overall attendance percentage with status indicators
+- Subject-wise attendance breakdown
+- Daily attendance history with date filtering
+- Real-time data synchronization
 
-### Commit Messages
-Follow conventional commit format:
-- `feat:` New features
-- `fix:` Bug fixes
-- `docs:` Documentation changes
-- `style:` Code style changes
-- `refactor:` Code refactoring
-- `test:` Test-related changes
+### Faculty Dashboard  
+- Real-time attendance marking for classes
+- Edit attendance with mandatory justification
+- Attendance analytics and trend charts
+- Export reports in CSV format
 
-### Code Review Process
-1. Create feature branch from `develop`
-2. Make changes and commit
-3. Create Pull Request to `develop`
-4. Request review from team members
-5. Merge after approval
+### Admin Dashboard
+- Defaulter management with configurable thresholds
+- Comprehensive audit log monitoring
+- System-wide analytics and dashboards
+- User management and security settings
 
-##  Documentation
+## 🔐 Security Features
 
-- [API Documentation](docs/api.md)
-- [User Guide](docs/user-guide.md)
-- [Developer Guide](docs/developer-guide.md)
+- Secure authentication with password hashing
+- Account lockout after 5 failed attempts
+- 15-minute session timeout
+- Comprehensive audit logging
+- TLS encryption indicators
 
-## 🧪 Testing
+## 📊 User Requirements Coverage
+
+✅ **20/20 User Stories Implemented**
+- Student Requirements (US-S01 to US-S06)
+- Faculty Requirements (US-F01 to US-F07)  
+- Admin Requirements (US-A01 to US-A06)
+- Security Requirements (US-Sec01 to US-Sec07)
+
+## 🧪 Testing & Quality
 
 ```bash
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
+make test       # Run tests
+make coverage   # Coverage analysis
+make lint       # Code quality
+make security   # Security scan
 ```
 
-# SAMS2 — Student Attendance Management System (Audit Logging)
+## 📁 Project Structure
 
-Stack: **Python + Streamlit**, SQLite, `schema.sql`, PyTest, GitHub Actions CI.
-
-## Features
-- Logs every attendance **Add/Edit/Delete** with timestamp, user ID, and IP.
-- Audit logs stored **separately** and **immutable** (DB triggers block update/delete).
-- Admin can filter by **date**, **user**, **course** in the Streamlit UI.
-- Export logs to **CSV** or **PDF**.
-- Attempts to modify logs are **blocked**, **logged as security events**, and surfaced in UI via error toast.
-
-## Quick start
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-streamlit run app.py
+```
+SAMS2/
+├── sams_complete.py         # Main application
+├── database/               # Database schemas
+├── src/                   # Core modules
+├── tests/                 # Test suite
+├── .github/workflows/     # CI/CD pipeline
+└── requirements.txt       # Dependencies
 ```
 
-The first run creates `sams2.db` using `schema.sql`.
+## 🔧 Default Credentials
 
-## Tests
-```bash
-pytest -q
-```
+- **Admin**: admin/admin123
+- **Faculty**: faculty1/faculty123
+- **Student**: PES2UG23CS143/student123
 
-## CI
-See `.github/workflows/ci.yml` — runs lint + tests on every push/PR.
+## 👥 Team Visionsoft
 
-
-##  License
-
-This project is developed for educational purposes as part of the PES University UE23CS341A curriculum.
+- [@PES2UG23CS143](https://github.com/PES2UG23CS143) - Scrum Master
+- [@PES2UG23CS165EC](https://github.com/PES2UG23CS165EC) - Developer
+- [@PES2UG23CS160](https://github.com/PES2UG23CS160) - Developer
+- [@PES2UG23-CS157](https://github.com/PES2UG23-CS157) - Developer
 
 ---
-
-**Course:** UE23CS341A  
-**Institution:** PES University  
-**Academic Year:** 2025  
-**Semester:** 5th Sem
+**Status**: ✅ Production Ready  
+**Institution**: PES University  
+**Academic Year**: 2025

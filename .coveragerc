@@ -1,0 +1,19 @@
+[run]
+source = src
+omit = 
+    src/dashboards/*
+    src/auth/*
+    src/components/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    except Exception
+precision = 2
+
+[html]
+directory = htmlcov

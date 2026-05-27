@@ -2,8 +2,18 @@ import csv
 import io
 from typing import List, Dict, Any
 
-# ✅ Correct import path (fixed)
-from src.models.audit_log import AuditLog
+
+def to_csv_bytes(logs: List[Dict[str, Any]]) -> bytes:
+    """Convert logs to CSV bytes for download."""
+    if not logs:
+        return b''
+    
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=logs[0].keys())
+    writer.writeheader()
+    writer.writerows(logs)
+    
+    return output.getvalue().encode('utf-8')
 
 
 def logs_to_csv(logs: List[Dict[str, Any]]) -> str:
@@ -48,6 +58,5 @@ def export_logs_csv(logs: List[Dict[str, Any]], file_path: str) -> None:
     """
     Writes the CSV data to a specified file.
     """
-    csv_content = logs_to_csv(logs)
-    with open(file_path, "w", newline="", encoding="utf-8") as f:
-        f.write(csv_content)
+    with open(file_path, 'wb') as f:
+        f.write(to_csv_bytes(logs))

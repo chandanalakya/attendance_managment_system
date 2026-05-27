@@ -1,68 +1,52 @@
+"""Pytest Configuration and Fixtures"""
+import pytest
+from unittest.mock import Mock, MagicMock, patch
 import sys
 import os
-import pytest
-from src.app import init_db, get_conn, create_user
 
-# --------------------------
-# Make src importable in tests
-# --------------------------
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+# Add src to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# --------------------------
-# Fixtures
-# --------------------------
 @pytest.fixture(autouse=True)
-def fresh_db(tmp_path):
-    """Provide a fresh database for every test."""
-    test_db = tmp_path / "test.db"
-    os.environ["ATTENDANCE_DB"] = str(test_db)
-    init_db()
-    yield
+def mock_streamlit():
+    """Auto-mock streamlit for all tests"""
+    with patch('streamlit.session_state', Mock()) as mock_st:
+        mock_st.authenticated = False
+        mock_st.user_role = None
+        mock_st.user_id = None
+        mock_st.username = None
+        mock_st.failed_attempts = 0
+        mock_st.locked_until = None
+        yield mock_st
 
 @pytest.fixture
-def seed_basic():
-    """Seed a basic set of users, course, enrollment, and attendance for tests."""
-    student_id = create_user("Stu", "stu@example.com", "pass", "student")
-    faculty_id = create_user("Fac", "fac@example.com", "pass", "faculty")
-    admin_id   = create_user("Adm", "adm@example.com", "pass", "admin")
+def mock_db_connection():
+    """Mock database connection"""
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
+    mock_conn.__enter__.return_value = mock_conn
+    mock_conn.__exit__.return_value = None
+    return mock_conn, mock_cursor
 
-    with get_conn() as conn:
-        # Insert course only if not exists
-        row = conn.execute("SELECT id FROM courses WHERE code='CS101'").fetchone()
-        if row:
-            course_id = row["id"]
-        else:
-            conn.execute("INSERT INTO courses(code,name) VALUES(?,?)", ("CS101", "Intro CS"))
-            course_id = conn.execute("SELECT id FROM courses WHERE code='CS101'").fetchone()["id"]
-
-        # Insert enrollment only if not exists
-        row = conn.execute(
-            "SELECT 1 FROM enrollments WHERE student_id=? AND course_id=?",
-            (student_id, course_id)
-        ).fetchone()
-        if not row:
-            conn.execute(
-                "INSERT INTO enrollments(student_id,course_id) VALUES(?,?)",
-                (student_id, course_id)
-            )
-
-        # Insert initial attendance record only if not exists
-        row = conn.execute(
-            "SELECT 1 FROM attendance WHERE student_id=? AND course_id=? AND session_dt=?",
-            (student_id, course_id, "2025-11-07T09:00:00+00:00")
-        ).fetchone()
-        if not row:
-            conn.execute(
-                "INSERT INTO attendance(student_id,course_id,session_dt,status) VALUES(?,?,?,?)",
-                (student_id, course_id, "2025-11-07T09:00:00+00:00", "absent")
-            )
-
-        # Clear old correction requests to start fresh
-        conn.execute("DELETE FROM attendance_corrections")
-
+@pytest.fixture
+def sample_user():
+    """Sample user data"""
     return {
-        "student_id": student_id,
-        "faculty_id": faculty_id,
-        "admin_id": admin_id,
-        "course_id": course_id,
+        'id': 1,
+        'username': 'testuser',
+        'role': 'student',
+        'email': 'test@test.com',
+        'full_name': 'Test User'
+    }
+
+@pytest.fixture
+def sample_attendance():
+    """Sample attendance data"""
+    return {
+        'id': 1,
+        'student_id': 1,
+        'course_id': 1,
+        'date': '2024-01-01',
+        'status': 'present'
     }

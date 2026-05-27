@@ -32,123 +32,90 @@ class AuditLog:
 # -------------------------------------------------------------------
 # ✅ LOG ACTION
 # -------------------------------------------------------------------
-def log_action(conn_or_session, action_type, attendance_id, user_id, ip_address, details=None):
-    valid_actions = {"ADD", "EDIT", "DELETE"}
+def log_action(conn, action_type, attendance_id, user_id, ip_address, details=None):
+    """Log an action to audit_logs table."""
+    valid_actions = {"ADD", "EDIT", "DELETE", "LOG_MOD_ATTEMPT"}
     if action_type not in valid_actions:
         raise ValueError(f"Invalid action_type '{action_type}'")
 
-    now = datetime.datetime.utcnow()
-    sql = """
-        INSERT INTO audit_logs (action_type, attendance_id, user_id, ip_address, details, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """
-    params = (action_type, attendance_id, user_id, ip_address, details, now)
-
     try:
-        if hasattr(conn_or_session, "executescript"):  # sqlite3
-            cur = conn_or_session.execute(sql, params)
-            conn_or_session.commit()
-            return cur.lastrowid
-        else:  # SQLAlchemy
-            result = conn_or_session.execute(
-                text(
-                    "INSERT INTO audit_logs (action_type, attendance_id, user_id, ip_address, details, created_at) "
-                    "VALUES (:action_type, :attendance_id, :user_id, :ip_address, :details, :created_at)"
-                ),
-                {
-                    "action_type": action_type,
-                    "attendance_id": attendance_id,
-                    "user_id": user_id,
-                    "ip_address": ip_address,
-                    "details": details,
-                    "created_at": now,
-                },
-            )
-            conn_or_session.commit()
-            return result.lastrowid
+        cursor = conn.cursor()
+        # For DELETE actions or when attendance_id doesn't exist, set to NULL
+        if action_type == "DELETE" or attendance_id is None:
+            attendance_id = None
+        else:
+            # Verify attendance_id exists before logging
+            cursor.execute("SELECT id FROM attendance WHERE id = %s", (attendance_id,))
+            if not cursor.fetchone():
+                attendance_id = None
+        
+        cursor.execute(
+            "INSERT INTO audit_logs (action_type, attendance_id, user_id, ip_address, details) VALUES (%s, %s, %s, %s, %s)",
+            (action_type, attendance_id, user_id, ip_address, details)
+        )
+        conn.commit()
+        log_id = cursor.lastrowid
+        cursor.close()
+        return log_id
     except Exception as e:
-        print(f"⚠️ log_action failed: {e}")
+        print(f"log_action failed: {e}")
         return None
 
 
 # -------------------------------------------------------------------
 # ✅ LOG SECURITY EVENT
 # -------------------------------------------------------------------
-def log_security_event(conn_or_session, event_type, user_id, ip_address, target_table, operation, details=None):
-    now = datetime.datetime.utcnow()
-    sql = """
-        INSERT INTO audit_security_events
-        (event_type, user_id, ip_address, target_table, operation, details, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """
-    params = (event_type, user_id, ip_address, target_table, operation, details, now)
-
+def log_security_event(conn, event_type, user_id, ip_address, target_table, operation, details=None):
+    """Log a security event to audit_security_events table."""
     try:
-        if hasattr(conn_or_session, "executescript"):  # sqlite3
-            cur = conn_or_session.execute(sql, params)
-            conn_or_session.commit()
-            return cur.lastrowid
-        else:  # SQLAlchemy
-            result = conn_or_session.execute(
-                text(
-                    "INSERT INTO audit_security_events "
-                    "(event_type, user_id, ip_address, target_table, operation, details, created_at) "
-                    "VALUES (:event_type, :user_id, :ip_address, :target_table, :operation, :details, :created_at)"
-                ),
-                {
-                    "event_type": event_type,
-                    "user_id": user_id,
-                    "ip_address": ip_address,
-                    "target_table": target_table,
-                    "operation": operation,
-                    "details": details,
-                    "created_at": now,
-                },
-            )
-            conn_or_session.commit()
-            return result.lastrowid
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO audit_security_events (event_type, user_id, ip_address, target_table, operation, details) VALUES (%s, %s, %s, %s, %s, %s)",
+            (event_type, user_id, ip_address, target_table, operation, details)
+        )
+        conn.commit()
+        event_id = cursor.lastrowid
+        cursor.close()
+        return event_id
     except Exception as e:
-        print(f"⚠️ log_security_event failed: {e}")
+        print(f"log_security_event failed: {e}")
         return None
 
 
 # -------------------------------------------------------------------
 # ✅ FETCH LOGS
 # -------------------------------------------------------------------
-def fetch_logs(conn, action_type=None, user_id=None):
-    query = "SELECT * FROM audit_logs WHERE 1=1"
-    params = []
-
-    if action_type:
-        query += " AND action_type = ?"
-        params.append(action_type)
-    if user_id:
-        query += " AND user_id = ?"
-        params.append(user_id)
-
-    query += " ORDER BY created_at DESC"
-
+def fetch_logs(conn, start=None, end=None, user_id=None, course_id=None):
+    """Fetch audit logs with optional filters."""
     try:
-        if hasattr(conn, "executescript"):  # sqlite3
-            cur = conn.execute(query, tuple(params))
-            rows = cur.fetchall()
-        else:  # SQLAlchemy
-            stmt = text(
-                "SELECT * FROM audit_logs WHERE 1=1"
-                + (" AND action_type = :action_type" if action_type else "")
-                + (" AND user_id = :user_id" if user_id else "")
-                + " ORDER BY created_at DESC"
-            )
-            bind = {}
-            if action_type:
-                bind["action_type"] = action_type
-            if user_id:
-                bind["user_id"] = user_id
-            rows = conn.execute(stmt, bind).fetchall()
+        cursor = conn.cursor()
+        query = "SELECT * FROM audit_logs WHERE 1=1"
+        params = []
 
-        return [AuditLog(**dict(r)) for r in rows]
+        if start:
+            query += " AND created_at >= %s"
+            params.append(start)
+        if end:
+            query += " AND created_at <= %s"
+            params.append(end)
+        if user_id:
+            query += " AND user_id = %s"
+            params.append(user_id)
+        if course_id:
+            query += " AND attendance_id IN (SELECT id FROM attendance WHERE course_id = %s)"
+            params.append(course_id)
+
+        query += " ORDER BY created_at DESC"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        cursor.close()
+        
+        # Convert to dict format
+        columns = ['id', 'action_type', 'attendance_id', 'user_id', 'ip_address', 'details', 'created_at']
+        return [dict(zip(columns, row)) for row in rows]
     except Exception as e:
-        print(f"⚠️ fetch_logs failed: {e}")
+        print(f"fetch_logs failed: {e}")
         return []
 
 

@@ -1,10 +1,11 @@
-import sqlite3
-from .audit_log import log_action, log_security_event
+"""Attendance management models."""
+import mysql.connector
+from typing import Optional
 from src.models.audit_log import log_action, log_security_event
 
 
 def add_attendance(
-    conn: sqlite3.Connection,
+    conn,
     *,
     course_id: int,
     student_id: int,
@@ -12,30 +13,47 @@ def add_attendance(
     taken_by_user_id: int,
     ip_address: str,
     notes: str = "",
+    date: str = None,
 ) -> int:
+    """Add new attendance record."""
     cur = conn.cursor()
-    cur.execute(
-        """
-        INSERT INTO attendance (course_id, student_id, status, taken_by_user_id, notes)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (course_id, student_id, status, taken_by_user_id, notes),
-    )
-    conn.commit()
-    attendance_id = cur.lastrowid
-    log_action(
-        conn,
-        action_type="ADD",
-        attendance_id=attendance_id,
-        user_id=taken_by_user_id,
-        ip_address=ip_address,
-        details=f"status={status}",
-    )
-    return attendance_id
+    try:
+        # Insert attendance record
+        if date is None:
+            cur.execute(
+                """
+                INSERT INTO attendance (course_id, student_id, date, status, taken_by_user_id, notes)
+                VALUES (%s, %s, CURDATE(), %s, %s, %s)
+                """,
+                (course_id, student_id, status, taken_by_user_id, notes),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO attendance (course_id, student_id, date, status, taken_by_user_id, notes)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (course_id, student_id, date, status, taken_by_user_id, notes),
+            )
+        attendance_id = cur.lastrowid
+        
+        # Insert audit log in same transaction
+        cur.execute(
+            "INSERT INTO audit_logs (action_type, attendance_id, user_id, ip_address, details) VALUES (%s, %s, %s, %s, %s)",
+            ("ADD", attendance_id, taken_by_user_id, ip_address, f"status={status}")
+        )
+        
+        conn.commit()
+        return attendance_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
 
 
 def edit_attendance(
-    conn: sqlite3.Connection,
+    conn,
     *,
     attendance_id: int,
     new_status: str,
@@ -43,48 +61,67 @@ def edit_attendance(
     ip_address: str,
     notes: str = "",
 ) -> None:
-    conn.execute(
-        "UPDATE attendance SET status = ?, notes = ? WHERE id = ?",
-        (new_status, notes, attendance_id),
-    )
-    conn.commit()
-    log_action(
-        conn,
-        action_type="EDIT",
-        attendance_id=attendance_id,
-        user_id=user_id,
-        ip_address=ip_address,
-        details=f"new_status={new_status}",
-    )
+    """Edit existing attendance record."""
+    cur = conn.cursor()
+    try:
+        # Update attendance record
+        cur.execute(
+            "UPDATE attendance SET status = %s, notes = %s WHERE id = %s",
+            (new_status, notes, attendance_id),
+        )
+        
+        # Insert audit log in same transaction
+        cur.execute(
+            "INSERT INTO audit_logs (action_type, attendance_id, user_id, ip_address, details) VALUES (%s, %s, %s, %s, %s)",
+            ("EDIT", attendance_id, user_id, ip_address, f"new_status={new_status}")
+        )
+        
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
 
 
 def delete_attendance(
-    conn: sqlite3.Connection, *, attendance_id: int, user_id: int, ip_address: str
+    conn, *, attendance_id: int, user_id: int, ip_address: str
 ) -> None:
-    conn.execute("DELETE FROM attendance WHERE id = ?", (attendance_id,))
-    conn.commit()
-    log_action(
-        conn,
-        action_type="DELETE",
-        attendance_id=attendance_id,
-        user_id=user_id,
-        ip_address=ip_address,
-        details="row deleted",
-    )
+    """Delete attendance record."""
+    cur = conn.cursor()
+    try:
+        # Log before deletion since attendance_id will be gone
+        cur.execute(
+            "INSERT INTO audit_logs (action_type, attendance_id, user_id, ip_address, details) VALUES (%s, %s, %s, %s, %s)",
+            ("DELETE", attendance_id, user_id, ip_address, "row deleted")
+        )
+        
+        # Delete attendance record
+        cur.execute("DELETE FROM attendance WHERE id = %s", (attendance_id,))
+        
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
 
 
 def attempt_modify_audit_logs(
-    conn: sqlite3.Connection, *, operation: str, user_id: int, ip_address: str
-):
+    conn, *, operation: str, user_id: int, ip_address: str
+) -> None:
+    """Attempt to modify audit logs (for testing tamper detection)."""
     try:
+        cur = conn.cursor()
         if operation.upper() == "UPDATE":
-            conn.execute("UPDATE audit_logs SET details = 'tampered' WHERE id = -1")
+            cur.execute("UPDATE audit_logs SET details = 'tampered' WHERE id = -1")
         elif operation.upper() == "DELETE":
-            conn.execute("DELETE FROM audit_logs WHERE id = -1")
+            cur.execute("DELETE FROM audit_logs WHERE id = -1")
         else:
-            raise ValueError("Unsupported op")
+            raise ValueError("Unsupported operation")
         conn.commit()
-    except sqlite3.DatabaseError as e:
+        cur.close()
+    except mysql.connector.Error as e:
         log_security_event(
             conn,
             event_type=f"{operation.upper()}_ATTEMPT",
